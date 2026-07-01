@@ -11,6 +11,7 @@ export default function DiverOtpLogin() {
   const [code, setCode] = useState('');
   const [diverId, setDiverId] = useState<number>(0);
   const [tempOtp, setTempOtp] = useState('');
+  const [emailHint, setEmailHint] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -38,6 +39,7 @@ export default function DiverOtpLogin() {
       if (!res.ok) { setError(data.error); return; }
       setDiverId(data.diver_id);
       setTempOtp(data.otp_code || '');
+      setEmailHint(data.email_sent ? (data.email_hint || '') : '');
       setStep('otp');
       setCountdown(300);
       setTimeout(() => codeInputRef.current?.focus(), 100);
@@ -83,6 +85,7 @@ export default function DiverOtpLogin() {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       setTempOtp(data.otp_code || '');
+      setEmailHint(data.email_sent ? (data.email_hint || '') : '');
       setCountdown(300);
     } catch {
       setError('שגיאת תקשורת');
@@ -152,7 +155,10 @@ export default function DiverOtpLogin() {
         {step === 'otp' && (
           <form onSubmit={verifyOtp} className="space-y-4">
             <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm text-center">
-              קוד אימות נשלח. הקוד תקף ל-{countdown > 0 ? formatTime(countdown) : 'פג תוקף'}
+              {emailHint
+                ? `קוד אימות נשלח לכתובת ${emailHint}. `
+                : 'קוד אימות נשלח. '}
+              הקוד תקף ל-{countdown > 0 ? formatTime(countdown) : 'פג תוקף'}
             </div>
             {tempOtp && (
               <div className="bg-yellow-50 border border-yellow-300 text-yellow-800 p-3 rounded-lg text-center">
