@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { Role } from '../../../shared/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'mery-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'fit2dive-secret-key-change-in-production';
 
 export interface AuthPayload {
   userId: number;

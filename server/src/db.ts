@@ -1,15 +1,31 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import bcrypt from 'bcryptjs';
+import fs from 'fs';
 
 // In production use the persistent volume mount, in dev use server/data
-const DB_PATH = process.env.NODE_ENV === 'production'
-  ? '/app/data/mery.db'
-  : path.join(__dirname, '..', 'data', 'mery.db');
+const DATA_DIR = process.env.NODE_ENV === 'production'
+  ? '/app/data'
+  : path.join(__dirname, '..', 'data');
+const DB_PATH = path.join(DATA_DIR, 'fit2dive.db');
+// Previous database filename, kept so existing deployments can be migrated.
+const LEGACY_DB_PATH = path.join(DATA_DIR, 'mery.db');
 
 // Ensure data directory exists
-import fs from 'fs';
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+fs.mkdirSync(DATA_DIR, { recursive: true });
+
+// One-time migration: if the renamed database does not exist yet but the
+// legacy one does, copy the legacy data into the new file so no data is lost.
+// The legacy file is left in place as a backup.
+if (!fs.existsSync(DB_PATH) && fs.existsSync(LEGACY_DB_PATH)) {
+  // Checkpoint the legacy WAL so all committed data lives in the main file,
+  // then copy the main file to the new path.
+  const legacy = new Database(LEGACY_DB_PATH);
+  legacy.pragma('wal_checkpoint(TRUNCATE)');
+  legacy.close();
+  fs.copyFileSync(LEGACY_DB_PATH, DB_PATH);
+  console.log(`Migrated database ${LEGACY_DB_PATH} -> ${DB_PATH}`);
+}
 
 const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
@@ -165,7 +181,7 @@ export function initDb() {
   const seedConfig = db.prepare(
     `INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`
   );
-  seedConfig.run('org_name', 'מרי');
+  seedConfig.run('org_name', 'Fit2Dive');
   seedConfig.run('otp_expiry_minutes', '5');
   seedConfig.run('otp_max_attempts', '3');
   seedConfig.run('lockout_hours', '12');
