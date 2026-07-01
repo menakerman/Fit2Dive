@@ -165,7 +165,7 @@ export function initDb() {
   const seedConfig = db.prepare(
     `INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)`
   );
-  seedConfig.run('org_name', 'מרי');
+  seedConfig.run('org_name', 'Fit2Dive');
   seedConfig.run('otp_expiry_minutes', '5');
   seedConfig.run('otp_max_attempts', '3');
   seedConfig.run('lockout_hours', '12');

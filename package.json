@@ -1,5 +1,5 @@
 {
-  "name": "mery",
+  "name": "fit2dive",
   "private": true,
   "workspaces": ["shared", "server", "client"],
   "scripts": {
