@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db';
 import { signToken, authenticate, requireRole } from '../middleware/auth';
+import { sendOtpEmail, isEmailConfigured } from '../email';
 
 function getConfig(key: string, fallback: string): string {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key) as { value: string } | undefined;
@@ -10,7 +11,7 @@ function getConfig(key: string, fallback: string): string {
 const router = Router();
 
 // Request OTP - public endpoint
-router.post('/request-otp', (req: Request, res: Response) => {
+router.post('/request-otp', async (req: Request, res: Response) => {
   const { phone, id_number } = req.body;
   if (!phone || !id_number) {
     res.status(400).json({ error: 'יש להזין מספר טלפון ותעודת זהות' });
@@ -18,7 +19,7 @@ router.post('/request-otp', (req: Request, res: Response) => {
   }
 
   const diver = db.prepare(`
-    SELECT id, first_name, last_name, id_number
+    SELECT id, first_name, last_name, id_number, email
     FROM divers
     WHERE phone = ? AND id_number = ?
   `).get(phone.trim(), id_number.trim()) as any;
@@ -57,9 +58,37 @@ router.post('/request-otp', (req: Request, res: Response) => {
 
   console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.id_number}): ${code}`);
 
-  // Include OTP in response for testing (remove when SMS is connected)
-  res.json({ success: true, diver_id: diver.id, otp_code: code });
+  // Try to email the code to the diver, when they have an address and
+  // SendGrid is configured.
+  let emailSent = false;
+  if (diver.email && isEmailConfigured()) {
+    const orgName = getConfig('org_name', 'Fit2Dive');
+    const result = await sendOtpEmail(diver.email, code, orgName);
+    emailSent = result.ok;
+    if (!result.ok) {
+      console.error(`[OTP] email to ${diver.email} failed: ${result.error}`);
+    }
+  }
+
+  // When the code was emailed, don't expose it in the response. Otherwise
+  // fall back to returning it (for divers without email / unconfigured mail).
+  const maskedEmail = emailSent ? maskEmail(diver.email) : undefined;
+  res.json({
+    success: true,
+    diver_id: diver.id,
+    email_sent: emailSent,
+    email_hint: maskedEmail,
+    otp_code: emailSent ? undefined : code,
+  });
 });
+
+// Masks an email for display, e.g. "john.doe@gmail.com" -> "jo***@gmail.com".
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const shown = local.slice(0, 2);
+  return `${shown}${'*'.repeat(Math.max(1, local.length - 2))}@${domain}`;
+}
 
 // Verify OTP - public endpoint
 router.post('/verify-otp', (req: Request, res: Response) => {
