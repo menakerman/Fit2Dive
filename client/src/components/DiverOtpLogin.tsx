@@ -7,7 +7,7 @@ type Step = 'phone' | 'otp';
 export default function DiverOtpLogin() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
-  const [idNumber, setIdNumber] = useState('');
+  const [personalNumber, setPersonalNumber] = useState('');
   const [code, setCode] = useState('');
   const [diverId, setDiverId] = useState<number>(0);
   const [tempOtp, setTempOtp] = useState('');
@@ -33,7 +33,7 @@ export default function DiverOtpLogin() {
       const res = await fetch('/api/diver-auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), id_number: idNumber.trim() }),
+        body: JSON.stringify({ phone: phone.trim(), personal_number: personalNumber.trim() }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -80,7 +80,7 @@ export default function DiverOtpLogin() {
       const res = await fetch('/api/diver-auth/request-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phone.trim(), id_number: idNumber.trim() }),
+        body: JSON.stringify({ phone: phone.trim(), personal_number: personalNumber.trim() }),
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
@@ -123,12 +123,12 @@ export default function DiverOtpLogin() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">תעודת זהות</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">מספר אישי</label>
               <input
                 type="text"
-                value={idNumber}
-                onChange={e => setIdNumber(e.target.value)}
-                placeholder="123456789"
+                value={personalNumber}
+                onChange={e => setPersonalNumber(e.target.value)}
+                placeholder="01234567"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 required
               />

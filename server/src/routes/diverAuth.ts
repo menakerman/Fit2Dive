@@ -12,17 +12,19 @@ const router = Router();
 
 // Request OTP - public endpoint
 router.post('/request-otp', async (req: Request, res: Response) => {
-  const { phone, id_number } = req.body;
-  if (!phone || !id_number) {
-    res.status(400).json({ error: 'יש להזין מספר טלפון ותעודת זהות' });
+  const { phone, personal_number } = req.body;
+  if (!phone || !personal_number) {
+    res.status(400).json({ error: 'יש להזין מספר טלפון ומספר אישי' });
     return;
   }
 
+  // Divers identify with phone + personal number (מספר אישי): the national ID
+  // is optional, while the personal number is mandatory for every diver.
   const diver = db.prepare(`
-    SELECT id, first_name, last_name, id_number, email
+    SELECT id, first_name, last_name, personal_number, email
     FROM divers
-    WHERE phone = ? AND id_number = ?
-  `).get(phone.trim(), id_number.trim()) as any;
+    WHERE phone = ? AND personal_number = ?
+  `).get(phone.trim(), personal_number.trim()) as any;
 
   if (!diver) {
     res.status(404).json({ error: 'פרטים לא נמצאו' });
@@ -56,7 +58,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     VALUES (?, ?, datetime('now', '+${parseInt(otpExpiry)} minutes'))
   `).run(diver.id, code);
 
-  console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.id_number}): ${code}`);
+  console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.personal_number}): ${code}`);
 
   // Try to email the code to the diver, when they have an address and
   // SendGrid is configured.
