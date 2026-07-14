@@ -19,7 +19,7 @@ restricts by role, and several routes apply an additional **team scope** or
 | `manager`  | מנהל        | System administrator. Full control over everything. | Username + password + staff OTP |
 | `secretary`| מזכירה      | Back-office staff. Manages divers, activities, certifications org-wide, but not users/teams/config. | Username + password + staff OTP |
 | `madar`    | מד"ר        | Team commander. Same data operations as secretary **but limited to their own team**. | Username + password + staff OTP |
-| `diver`    | צולל        | End user. Read-only, and only their own record. | Self-service OTP (phone + ID number) |
+| `diver`    | צולל        | End user. Read-only, and only their own record. | Self-service OTP (phone + personal number / מספר אישי) |
 
 **Scope rules used below**
 
