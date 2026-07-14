@@ -8,25 +8,31 @@ interface PreviewData {
 }
 
 const FIELDS = [
+  { key: 'personal_number', label: 'מספר אישי' },
   { key: 'first_name', label: 'שם פרטי' },
   { key: 'last_name', label: 'שם משפחה' },
+  { key: 'fitness_status', label: 'סטטוס כשירות' },
+  { key: 'fitness_status_date', label: 'תאריך סטטוס כשירות' },
+  { key: 'fitness_expiry_date', label: 'תוקף כשירות' },
+  { key: 'unfit_days', label: 'ימי אי כשירות' },
+  { key: 'last_exam_date', label: 'תאריך בדיקה אחרון' },
   { key: 'id_number', label: 'תעודת זהות' },
   { key: 'phone', label: 'טלפון' },
   { key: 'email', label: 'אימייל' },
-  { key: 'certification_level', label: 'רמת הסמכה' },
-  { key: 'certification_expiry', label: 'תוקף הסמכה' },
-  { key: 'medical_status', label: 'סטטוס רפואי' },
-  { key: 'medical_expiry_date', label: 'תוקף רפואי' },
-  { key: 'team', label: 'צוות' },
   { key: 'notes', label: 'הערות' },
 ];
+
+// Columns holding required-exam notes are detected automatically by header
+// pattern (הערה 1, הערה 2, ...) rather than mapped one-by-one.
+const EXAM_COLUMN_RE = /^\s*הערה\s*\d+\s*$/;
 
 export default function ExcelUpload() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
-  const [result, setResult] = useState<{ imported: number; errors: string[]; total: number } | null>(null);
+  const [examColumns, setExamColumns] = useState<string[]>([]);
+  const [result, setResult] = useState<{ imported: number; created?: number; updated?: number; errors: string[]; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,16 +65,17 @@ export default function ExcelUpload() {
       setPreview(data);
 
       const autoMap: Record<string, string[]> = {
+        personal_number: ['מספר אישי', 'מס אישי', 'מס\' אישי', 'personal_number'],
         first_name: ['שם פרטי', 'first_name', 'שם'],
         last_name: ['שם משפחה', 'last_name', 'משפחה'],
+        fitness_status: ['סטטוס כשירות', 'סטטוס', 'כשירות', 'fitness_status'],
+        fitness_status_date: ['תאריך סטטוס כשירות', 'fitness_status_date'],
+        fitness_expiry_date: ['תאריך סיום תוקף כשירות', 'תוקף כשירות', 'תוקף רפואי', 'fitness_expiry'],
+        unfit_days: ['ימי אי כשירות', 'unfit_days'],
+        last_exam_date: ['תאריך בדיקה אחרון', 'תאריך בדיקה אחרונה', 'last_exam_date'],
         id_number: ['תעודת זהות', 'ת.ז', 'id_number', 'id', 'tz'],
         phone: ['טלפון', 'phone', 'נייד'],
         email: ['אימייל', 'email', 'דוא"ל'],
-        certification_level: ['רמת הסמכה', 'הסמכה', 'certification'],
-        certification_expiry: ['תוקף הסמכה', 'cert_expiry'],
-        medical_status: ['סטטוס רפואי', 'רפואי', 'medical_status'],
-        medical_expiry_date: ['תוקף רפואי', 'medical_expiry'],
-        team: ['צוות', 'team', 'קבוצה'],
         notes: ['הערות', 'notes'],
       };
 
@@ -82,6 +89,9 @@ export default function ExcelUpload() {
         }
       }
       setMapping(newMapping);
+
+      // Auto-detect the הערה 1/2/3... columns that hold required exams.
+      setExamColumns(data.headers.filter(h => EXAM_COLUMN_RE.test(h)));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -98,7 +108,8 @@ export default function ExcelUpload() {
       const fd = new FormData();
       fd.append('file', file);
       fd.append('mapping', JSON.stringify(mapping));
-      const data = await api.post<{ imported: number; errors: string[]; total: number }>('/upload/import', fd);
+      fd.append('exam_columns', JSON.stringify(examColumns));
+      const data = await api.post<{ imported: number; created?: number; updated?: number; errors: string[]; total: number }>('/upload/import', fd);
       setResult(data);
     } catch (err: any) {
       setError(err.message);
@@ -117,6 +128,9 @@ export default function ExcelUpload() {
         <div className="bg-green-50 border border-green-200 p-3 sm:p-4 rounded-lg mb-4">
           <div className="text-green-800 font-medium text-sm sm:text-base">
             יובאו {result.imported} מתוך {result.total} שורות בהצלחה
+            {(result.created !== undefined || result.updated !== undefined) && (
+              <span className="font-normal"> ({result.created ?? 0} חדשים, {result.updated ?? 0} עודכנו)</span>
+            )}
           </div>
           {result.errors.length > 0 && (
             <div className="mt-2 text-xs sm:text-sm text-red-600">
@@ -143,23 +157,21 @@ export default function ExcelUpload() {
               </tr>
             </thead>
             <tbody className="text-blue-700">
+              <tr><td className="px-2 sm:px-3 py-1">מספר אישי</td><td className="px-2 sm:px-3 py-1">כן</td><td className="px-2 sm:px-3 py-1">מספר (מזהה ייחודי לכל צולל)</td></tr>
               <tr><td className="px-2 sm:px-3 py-1">שם פרטי</td><td className="px-2 sm:px-3 py-1">כן</td><td className="px-2 sm:px-3 py-1">טקסט</td></tr>
               <tr><td className="px-2 sm:px-3 py-1">שם משפחה</td><td className="px-2 sm:px-3 py-1">כן</td><td className="px-2 sm:px-3 py-1">טקסט</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">תעודת זהות</td><td className="px-2 sm:px-3 py-1">כן</td><td className="px-2 sm:px-3 py-1">מספר (ייחודי לכל צולל)</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">טלפון</td><td className="px-2 sm:px-3 py-1">כן</td><td className="px-2 sm:px-3 py-1">טקסט (ייחודי)</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">אימייל</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">טקסט</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">רמת הסמכה</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">שם רמה כפי שהוגדרה בניהול</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">תוקף הסמכה</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">תאריך (YYYY-MM-DD)</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">סטטוס רפואי</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">valid / expired / pending</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">תוקף רפואי</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">תאריך (YYYY-MM-DD)</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">צוות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">שם צוות כפי שהוגדר בניהול</td></tr>
-              <tr><td className="px-2 sm:px-3 py-1">הערות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">טקסט חופשי</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">סטטוס כשירות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">כשיר / כשיר זמני / טרם נבדק / בלתי כשיר...</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">תאריך סטטוס כשירות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">תאריך (DD/MM/YYYY)</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">תאריך סיום תוקף כשירות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">תאריך (DD/MM/YYYY)</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">ימי אי כשירות</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">מספר</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">תאריך בדיקה אחרון</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">תאריך (YYYY-MM-DD)</td></tr>
+              <tr><td className="px-2 sm:px-3 py-1">הערה 1, הערה 2, ...</td><td className="px-2 sm:px-3 py-1">לא</td><td className="px-2 sm:px-3 py-1">בדיקות שהצולל נדרש להשלים (עמודות מרובות, מזוהות אוטומטית)</td></tr>
             </tbody>
           </table>
         </div>
         <p className="text-xs text-blue-600 mb-3">
           אם שמות העמודות שונים מהמומלץ, ניתן למפות אותן ידנית לאחר העלאת הקובץ.
-          צולל עם תעודת זהות קיימת יעודכן במקום להיווצר מחדש.
+          צולל עם מספר אישי קיים יעודכן במקום להיווצר מחדש.
         </p>
         <button
           onClick={handleDownloadSample}
@@ -202,7 +214,9 @@ export default function ExcelUpload() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 {FIELDS.map(f => (
                   <div key={f.key} className="flex items-center gap-2">
-                    <span className="text-xs sm:text-sm font-medium text-gray-600 w-20 sm:w-28 shrink-0">{f.label}</span>
+                    <span className="text-xs sm:text-sm font-medium text-gray-600 w-20 sm:w-28 shrink-0">
+                      {f.label}{f.key === 'personal_number' && <span className="text-red-500"> *</span>}
+                    </span>
                     <select
                       value={mapping[f.key] || ''}
                       onChange={e => setMapping(prev => ({ ...prev, [f.key]: e.target.value }))}
@@ -214,6 +228,11 @@ export default function ExcelUpload() {
                   </div>
                 ))}
               </div>
+              {examColumns.length > 0 && (
+                <div className="mt-3 text-xs sm:text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  עמודות בדיקות שזוהו אוטומטית ({examColumns.length}): {examColumns.join(', ')}
+                </div>
+              )}
             </div>
 
             <div className="mb-4 sm:mb-6">
@@ -243,13 +262,13 @@ export default function ExcelUpload() {
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
               <button
                 onClick={handleImport}
-                disabled={loading || !mapping.id_number}
+                disabled={loading || !mapping.personal_number}
                 className="bg-green-600 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition w-full sm:w-auto"
               >
                 ייבוא {preview.totalRows} שורות
               </button>
-              {!mapping.id_number && (
-                <span className="text-xs sm:text-sm text-orange-600">יש למפות לפחות את שדה תעודת הזהות</span>
+              {!mapping.personal_number && (
+                <span className="text-xs sm:text-sm text-orange-600">יש למפות לפחות את שדה המספר האישי</span>
               )}
             </div>
           </>

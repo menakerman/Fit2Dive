@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
+import { FITNESS_STATUSES } from '../lib/fitness';
 import type { CertificationLevel, Team, DiverWithDetails, DiverCertification } from '../../../shared/types';
 
 type FieldErrors = Record<string, string>;
@@ -16,13 +17,17 @@ export default function DiverForm() {
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
+    personal_number: '',
     id_number: '',
     phone: '',
     email: '',
-    medical_status: 'pending',
-    medical_expiry_date: '',
+    fitness_status: 'טרם נבדק',
+    fitness_status_date: '',
+    fitness_expiry_date: '',
+    last_exam_date: '',
     notes: '',
     team_ids: [] as number[],
+    required_exams: [] as string[],
   });
   const [certLevels, setCertLevels] = useState<CertificationLevel[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -41,13 +46,17 @@ export default function DiverForm() {
           setForm({
             first_name: d.first_name,
             last_name: d.last_name,
+            personal_number: d.personal_number,
             id_number: d.id_number,
             phone: d.phone,
             email: d.email,
-            medical_status: d.medical_status,
-            medical_expiry_date: d.medical_expiry_date || '',
+            fitness_status: d.fitness_status || 'טרם נבדק',
+            fitness_status_date: d.fitness_status_date || '',
+            fitness_expiry_date: d.fitness_expiry_date || '',
+            last_exam_date: d.last_exam_date || '',
             notes: d.notes,
             team_ids: d.teams.map(t => t.id),
+            required_exams: d.required_exams || [],
           });
         })
         .catch(e => setError(e.message))
@@ -59,7 +68,7 @@ export default function DiverForm() {
     const errs: FieldErrors = {};
     if (!form.first_name.trim()) errs.first_name = 'שם פרטי הוא שדה חובה';
     if (!form.last_name.trim()) errs.last_name = 'שם משפחה הוא שדה חובה';
-    if (!form.id_number.trim()) errs.id_number = 'תעודת זהות היא שדה חובה';
+    if (!form.personal_number.trim()) errs.personal_number = 'מספר אישי הוא שדה חובה';
     if (!form.phone.trim()) {
       errs.phone = 'מספר טלפון הוא שדה חובה';
     }
@@ -76,7 +85,8 @@ export default function DiverForm() {
   };
 
   const mapServerError = (msg: string) => {
-    if (msg.includes('טלפון')) setFieldErrors(prev => ({ ...prev, phone: msg }));
+    if (msg.includes('מספר אישי כבר')) setFieldErrors(prev => ({ ...prev, personal_number: msg }));
+    else if (msg.includes('טלפון')) setFieldErrors(prev => ({ ...prev, phone: msg }));
     else if (msg.includes('אימייל')) setFieldErrors(prev => ({ ...prev, email: msg }));
     else if (msg.includes('תעודת זהות כבר')) setFieldErrors(prev => ({ ...prev, id_number: msg }));
   };
@@ -88,7 +98,13 @@ export default function DiverForm() {
     if (!validate()) { showError('יש לתקן את השדות המסומנים'); return; }
     setSaving(true);
     try {
-      const body = { ...form, medical_expiry_date: form.medical_expiry_date || null };
+      const body = {
+        ...form,
+        fitness_status_date: form.fitness_status_date || null,
+        fitness_expiry_date: form.fitness_expiry_date || null,
+        last_exam_date: form.last_exam_date || null,
+        required_exams: form.required_exams.map(e => e.trim()).filter(Boolean),
+      };
       if (isNew) {
         await api.post('/divers', body);
       } else {
@@ -154,7 +170,10 @@ export default function DiverForm() {
           <Field label="שם משפחה" value={form.last_name} onChange={v => update('last_name', v)} required error={fieldErrors.last_name} />
         </div>
 
-        <Field label="תעודת זהות" value={form.id_number} onChange={v => update('id_number', v)} required error={fieldErrors.id_number} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <Field label="מספר אישי" value={form.personal_number} onChange={v => update('personal_number', v)} required error={fieldErrors.personal_number} />
+          <Field label="תעודת זהות" value={form.id_number} onChange={v => update('id_number', v)} error={fieldErrors.id_number} />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <Field label="טלפון" value={form.phone} onChange={v => update('phone', v)} error={fieldErrors.phone} required />
@@ -163,15 +182,29 @@ export default function DiverForm() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס רפואי</label>
-            <select value={form.medical_status} onChange={e => update('medical_status', e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">סטטוס כשירות</label>
+            <select value={form.fitness_status} onChange={e => update('fitness_status', e.target.value)}
               className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
-              <option value="valid">תקף</option>
-              <option value="expired">פג תוקף</option>
-              <option value="pending">ממתין</option>
+              {FITNESS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
-          <Field label="תוקף רפואי" value={form.medical_expiry_date} onChange={v => update('medical_expiry_date', v)} type="date" />
+          <Field label="תאריך סטטוס כשירות" value={form.fitness_status_date} onChange={v => update('fitness_status_date', v)} type="date" />
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <Field label="תוקף כשירות" value={form.fitness_expiry_date} onChange={v => update('fitness_expiry_date', v)} type="date" />
+          <Field label="תאריך בדיקה אחרון" value={form.last_exam_date} onChange={v => update('last_exam_date', v)} type="date" />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">בדיקות נדרשות</label>
+          <textarea
+            value={form.required_exams.join('\n')}
+            onChange={e => update('required_exams', e.target.value.split('\n'))}
+            rows={3}
+            placeholder="בדיקה אחת בכל שורה"
+            className="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm" />
+          <p className="text-gray-400 text-xs mt-1">כל שורה היא בדיקה נפרדת שהצולל נדרש להשלים.</p>
         </div>
 
         {/* Teams - multi-select checkboxes */}

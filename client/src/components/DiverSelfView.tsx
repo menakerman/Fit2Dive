@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
+import { fitnessBadgeClass, fitnessLabel } from '../lib/fitness';
 import type { DiverWithDetails } from '../../../shared/types';
 
 interface Activity {
@@ -34,17 +35,6 @@ export default function DiverSelfView() {
     }
   }, [user]);
 
-  const statusColors: Record<string, string> = {
-    valid: 'bg-green-100 text-green-800',
-    expired: 'bg-red-100 text-red-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-  };
-  const statusLabels: Record<string, string> = {
-    valid: 'תקף',
-    expired: 'פג תוקף',
-    pending: 'ממתין',
-  };
-
   if (loading) return <div className="text-center py-10">טוען...</div>;
   if (error) return <div className="bg-red-50 text-red-700 p-4 rounded-lg text-sm">{error}</div>;
   if (!diver) return null;
@@ -61,7 +51,7 @@ export default function DiverSelfView() {
 
         <div className="text-center mb-4 sm:mb-6">
           <div className="text-lg sm:text-xl font-semibold text-gray-800">{diver.first_name} {diver.last_name}</div>
-          <div className="text-sm text-gray-500">ת.ז: {diver.id_number}</div>
+          <div className="text-sm text-gray-500">מספר אישי: {diver.personal_number}</div>
         </div>
 
         <div className="space-y-3 sm:space-y-4">
@@ -88,23 +78,40 @@ export default function DiverSelfView() {
 
           <div className="border-t pt-3 sm:pt-4">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-600 font-medium">סטטוס רפואי</span>
-              <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${statusColors[diver.medical_status]}`}>
-                {statusLabels[diver.medical_status]}
+              <span className="text-sm text-gray-600 font-medium">סטטוס כשירות</span>
+              <span className={`px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${fitnessBadgeClass(diver.fitness_status)}`}>
+                {fitnessLabel(diver.fitness_status)}
               </span>
             </div>
           </div>
 
           <InfoRow
-            label="תוקף רפואי"
-            value={diver.medical_expiry_date ? new Date(diver.medical_expiry_date).toLocaleDateString('he-IL') : 'לא הוגדר'}
-            warning={isExpiringSoon(diver.medical_expiry_date) ? 'עומד לפוג בקרוב!' : undefined}
+            label="תוקף כשירות"
+            value={diver.fitness_expiry_date ? new Date(diver.fitness_expiry_date).toLocaleDateString('he-IL') : 'לא הוגדר'}
+            warning={isExpiringSoon(diver.fitness_expiry_date) ? 'עומד לפוג בקרוב!' : undefined}
           />
 
-          <InfoRow
-            label="עדכון אחרון"
-            value={diver.medical_last_updated ? new Date(diver.medical_last_updated).toLocaleDateString('he-IL') : 'לא עודכן'}
-          />
+          {diver.fitness_status_date && (
+            <InfoRow label="תאריך סטטוס" value={new Date(diver.fitness_status_date).toLocaleDateString('he-IL')} />
+          )}
+
+          {diver.last_exam_date && (
+            <InfoRow label="בדיקה אחרונה" value={new Date(diver.last_exam_date).toLocaleDateString('he-IL')} />
+          )}
+
+          {diver.required_exams.length > 0 && (
+            <div className="border-t pt-3 sm:pt-4">
+              <span className="text-sm text-gray-600 font-medium">בדיקות נדרשות</span>
+              <ul className="mt-1.5 space-y-1">
+                {diver.required_exams.map((exam, i) => (
+                  <li key={i} className="flex items-start gap-2 bg-amber-50 text-amber-900 rounded-lg px-3 py-2 text-sm">
+                    <span className="text-amber-500 mt-0.5">•</span>
+                    <span>{exam}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {diver.teams.length > 0 && (
             <InfoRow label="צוותים" value={diver.team_names} />
