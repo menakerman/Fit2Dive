@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
-import { fitnessBadgeClass, fitnessLabel } from '../lib/fitness';
+import { fitnessBadgeClass, fitnessLabel, formatUnfitDays } from '../lib/fitness';
 import type { DiverWithDetails } from '../../../shared/types';
 
 interface Activity {
@@ -90,6 +90,10 @@ export default function DiverSelfView() {
             value={diver.fitness_expiry_date ? new Date(diver.fitness_expiry_date).toLocaleDateString('he-IL') : 'לא הוגדר'}
             warning={isExpiringSoon(diver.fitness_expiry_date) ? 'עומד לפוג בקרוב!' : undefined}
           />
+
+          {diver.unfit_days != null && (
+            <InfoRow label="ימי אי כשירות" value={formatUnfitDays(diver.unfit_days)} />
+          )}
 
           {diver.fitness_status_date && (
             <InfoRow label="תאריך סטטוס" value={new Date(diver.fitness_status_date).toLocaleDateString('he-IL')} />
