@@ -2,19 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
+import { fitnessBadgeClass, fitnessLabel } from '../lib/fitness';
 import type { DiverWithDetails } from '../../../shared/types';
-
-const statusColors: Record<string, string> = {
-  valid: 'bg-green-100 text-green-800',
-  expired: 'bg-red-100 text-red-800',
-  pending: 'bg-yellow-100 text-yellow-800',
-};
-
-const statusLabels: Record<string, string> = {
-  valid: 'תקף',
-  expired: 'פג תוקף',
-  pending: 'ממתין',
-};
 
 export default function DiverList() {
   const [divers, setDivers] = useState<DiverWithDetails[]>([]);
@@ -59,7 +48,7 @@ export default function DiverList() {
       <div className="flex gap-2 mb-4">
         <input
           type="text"
-          placeholder="חיפוש לפי שם או ת.ז..."
+          placeholder="חיפוש לפי שם או מספר אישי..."
           value={search}
           onChange={e => setSearch(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
@@ -89,17 +78,17 @@ export default function DiverList() {
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-gray-800">{d.first_name} {d.last_name}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[d.medical_status]}`}>
-                    {statusLabels[d.medical_status]}
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fitnessBadgeClass(d.fitness_status)}`}>
+                    {fitnessLabel(d.fitness_status)}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-xs text-gray-600">
-                  <span>ת.ז: {d.id_number}</span>
+                  <span>מספר אישי: {d.personal_number}</span>
                   <span>הסמכות: {d.certification_names}</span>
                   <span>
-                    תוקף רפואי: {d.medical_expiry_date ? (
-                      <span className={isExpiringSoon(d.medical_expiry_date) ? 'text-orange-600 font-medium' : ''}>
-                        {new Date(d.medical_expiry_date).toLocaleDateString('he-IL')}
+                    תוקף כשירות: {d.fitness_expiry_date ? (
+                      <span className={isExpiringSoon(d.fitness_expiry_date) ? 'text-orange-600 font-medium' : ''}>
+                        {new Date(d.fitness_expiry_date).toLocaleDateString('he-IL')}
                       </span>
                     ) : '-'}
                   </span>
@@ -116,10 +105,10 @@ export default function DiverList() {
                 <thead className="bg-gray-50 border-b">
                   <tr>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">שם</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">ת.ז</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">מספר אישי</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">הסמכות</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">סטטוס רפואי</th>
-                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">תוקף רפואי</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">סטטוס כשירות</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">תוקף כשירות</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">צוותים</th>
                   </tr>
                 </thead>
@@ -131,17 +120,17 @@ export default function DiverList() {
                       className="hover:bg-blue-50 cursor-pointer transition"
                     >
                       <td className="px-4 py-3 font-medium">{d.first_name} {d.last_name}</td>
-                      <td className="px-4 py-3 text-gray-600">{d.id_number}</td>
+                      <td className="px-4 py-3 text-gray-600">{d.personal_number}</td>
                       <td className="px-4 py-3">{d.certification_names}</td>
                       <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[d.medical_status]}`}>
-                          {statusLabels[d.medical_status]}
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fitnessBadgeClass(d.fitness_status)}`}>
+                          {fitnessLabel(d.fitness_status)}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {d.medical_expiry_date ? (
-                          <span className={isExpiringSoon(d.medical_expiry_date) ? 'text-orange-600 font-medium' : ''}>
-                            {new Date(d.medical_expiry_date).toLocaleDateString('he-IL')}
+                        {d.fitness_expiry_date ? (
+                          <span className={isExpiringSoon(d.fitness_expiry_date) ? 'text-orange-600 font-medium' : ''}>
+                            {new Date(d.fitness_expiry_date).toLocaleDateString('he-IL')}
                           </span>
                         ) : '-'}
                       </td>

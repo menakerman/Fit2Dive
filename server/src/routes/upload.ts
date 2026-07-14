@@ -10,24 +10,53 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 router.use(authenticate);
 router.use(requireRole('manager', 'secretary'));
 
-// Download sample Excel file
+const DEFAULT_FITNESS_STATUS = 'טרם נבדק';
+
+// Normalizes a date string to YYYY-MM-DD. Accepts DD/MM/YYYY (and . or - as
+// separators) as well as YYYY-MM-DD. The sentinel year 9999 (e.g. 31/12/9999,
+// used by the source system for "no expiry") is treated as no date. Returns
+// null when the value is empty or unparseable.
+function normalizeDate(value: string): string | null {
+  const s = (value || '').trim();
+  if (!s) return null;
+
+  const dmy = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (dmy) {
+    const [, d, m, y] = dmy;
+    if (y === '9999') return null;
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  }
+
+  const ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (ymd) {
+    return `${ymd[1]}-${ymd[2].padStart(2, '0')}-${ymd[3].padStart(2, '0')}`;
+  }
+
+  return null;
+}
+
+// Returns the trimmed status, or the default when the cell is empty. Unknown
+// values are preserved as-is so no source data is lost.
+function normalizeStatus(value: string): string {
+  return (value || '').trim() || DEFAULT_FITNESS_STATUS;
+}
+
+// Download a sample כשירות report matching the expected import format.
 router.get('/sample', (_req: Request, res: Response) => {
   const headers = [
-    'שם פרטי', 'שם משפחה', 'תעודת זהות', 'טלפון', 'אימייל',
-    'רמת הסמכה', 'תוקף הסמכה', 'סטטוס רפואי', 'תוקף רפואי', 'צוות', 'הערות',
+    'מספר אישי', 'שם פרטי', 'שם משפחה', 'סטטוס כשירות',
+    'הערה 1', 'הערה 2', 'הערה 3',
+    'תאריך סטטוס כשירות', 'תאריך סיום תוקף כשירות', 'ימי אי כשירות', 'תאריך בדיקה אחרון',
   ];
   const sampleRows = [
-    ['ישראל', 'ישראלי', '123456789', '0501234567', 'israel@example.com', 'צוללן 1', '2027-01-15', 'valid', '2027-06-01', 'צוות אלפא', ''],
-    ['דנה', 'כהן', '987654321', '0529876543', 'dana@example.com', 'צוללן 2', '2026-12-01', 'expired', '2026-03-01', 'צוות בטא', 'צריך חידוש'],
+    ['03343780', 'ישראל', 'ישראלי', 'כשיר', '', '', '', '19/09/2023', '31/12/2027', '0', '2023-09-19'],
+    ['03705865', 'דנה', 'כהן', 'בלתי כשיר זמנית', 'להשלים בדיקת שתן כללית', 'בדיקת שתן', '', '20/09/2025', '19/07/2027', '298', '2025-07-20'],
   ];
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows]);
-
-  // Set column widths
   ws['!cols'] = headers.map(() => ({ wch: 16 }));
-
-  XLSX.utils.book_append_sheet(wb, ws, 'צוללים');
+  XLSX.utils.book_append_sheet(wb, ws, 'כשירות');
   const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -35,7 +64,7 @@ router.get('/sample', (_req: Request, res: Response) => {
   res.send(buf);
 });
 
-// Preview Excel data
+// Preview Excel data (headers + first rows) so the client can map columns.
 router.post('/preview', upload.single('file'), (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'קובץ נדרש' });
@@ -45,7 +74,7 @@ router.post('/preview', upload.single('file'), (req: Request, res: Response) => 
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as Record<string, any>[];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }) as Record<string, any>[];
     const headers = rows.length > 0 ? Object.keys(rows[0]) : [];
     res.json({ headers, rows: rows.slice(0, 50), totalRows: rows.length });
   } catch {
@@ -53,7 +82,9 @@ router.post('/preview', upload.single('file'), (req: Request, res: Response) => 
   }
 });
 
-// Import Excel data
+// Import divers from the כשירות report. Creates new divers and updates existing
+// ones, keyed on מספר אישי (personal_number). Any number of הערה columns are
+// collected into each diver's required-exam list.
 router.post('/import', upload.single('file'), (req: Request, res: Response) => {
   if (!req.file) {
     res.status(400).json({ error: 'קובץ נדרש' });
@@ -61,40 +92,38 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
   }
 
   const mapping = JSON.parse(req.body.mapping || '{}') as Record<string, string>;
+  // Column headers to treat as required-exam notes (הערה 1, הערה 2, ...).
+  const examColumns = JSON.parse(req.body.exam_columns || '[]') as string[];
 
   try {
     const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' }) as Record<string, any>[];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }) as Record<string, any>[];
 
-    // Build certification level lookup
-    const certLevels = db.prepare('SELECT id, name FROM certification_levels').all() as { id: number; name: string }[];
-    const certMap = new Map(certLevels.map(c => [c.name.trim().toLowerCase(), c.id]));
-
-    // Build team lookup
-    const teams = db.prepare('SELECT id, name FROM teams').all() as { id: number; name: string }[];
-    const teamMap = new Map(teams.map(t => [t.name.trim().toLowerCase(), t.id]));
-
-    const upsert = db.prepare(`
-      INSERT INTO divers (first_name, last_name, id_number, phone, email, certification_level_id, certification_expiry, medical_status, medical_expiry_date, medical_last_updated, team_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, ?)
-      ON CONFLICT(id_number) DO UPDATE SET
-        first_name = excluded.first_name,
-        last_name = excluded.last_name,
-        phone = excluded.phone,
-        email = excluded.email,
-        certification_level_id = excluded.certification_level_id,
-        certification_expiry = excluded.certification_expiry,
-        medical_status = excluded.medical_status,
-        medical_expiry_date = excluded.medical_expiry_date,
-        medical_last_updated = datetime('now'),
-        team_id = excluded.team_id,
-        notes = excluded.notes,
-        updated_at = datetime('now')
+    const findByPersonal = db.prepare('SELECT id FROM divers WHERE personal_number = ?');
+    const insertDiver = db.prepare(`
+      INSERT INTO divers (
+        first_name, last_name, personal_number, id_number, phone, email,
+        fitness_status, fitness_status_date, fitness_expiry_date, unfit_days,
+        last_exam_date, medical_last_updated, notes
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     `);
+    const updateDiver = db.prepare(`
+      UPDATE divers SET
+        first_name = ?, last_name = ?,
+        fitness_status = ?, fitness_status_date = ?, fitness_expiry_date = ?,
+        unfit_days = ?, last_exam_date = ?, medical_last_updated = datetime('now'),
+        updated_at = datetime('now')
+      WHERE id = ?
+    `);
+    const deleteExams = db.prepare('DELETE FROM diver_required_exams WHERE diver_id = ?');
+    const insertExam = db.prepare('INSERT INTO diver_required_exams (diver_id, exam, sort_order) VALUES (?, ?, ?)');
 
     let imported = 0;
-    let errors: string[] = [];
+    let created = 0;
+    let updated = 0;
+    const errors: string[] = [];
 
     const importAll = db.transaction(() => {
       for (let i = 0; i < rows.length; i++) {
@@ -102,36 +131,58 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
         try {
           const getValue = (field: string) => {
             const col = mapping[field];
-            return col ? String(row[col] || '').trim() : '';
+            return col ? String(row[col] ?? '').trim() : '';
           };
 
+          const personalNumber = getValue('personal_number');
           const firstName = getValue('first_name');
           const lastName = getValue('last_name');
-          const idNumber = getValue('id_number');
 
-          const phone = getValue('phone');
-
-          if (!firstName || !lastName || !idNumber || !phone) {
-            errors.push(`שורה ${i + 2}: שם פרטי, שם משפחה, תעודת זהות וטלפון נדרשים`);
+          if (!personalNumber) {
+            errors.push(`שורה ${i + 2}: מספר אישי חסר`);
+            continue;
+          }
+          if (!firstName || !lastName) {
+            errors.push(`שורה ${i + 2}: שם פרטי ושם משפחה נדרשים`);
             continue;
           }
 
-          const certName = getValue('certification_level').toLowerCase();
-          const certId = certName ? (certMap.get(certName) || null) : null;
+          const fitnessStatus = normalizeStatus(getValue('fitness_status'));
+          const statusDate = normalizeDate(getValue('fitness_status_date'));
+          const expiryDate = normalizeDate(getValue('fitness_expiry_date'));
+          const lastExamDate = normalizeDate(getValue('last_exam_date'));
+          const unfitRaw = getValue('unfit_days');
+          const unfitDays = unfitRaw && /^\d+$/.test(unfitRaw) ? parseInt(unfitRaw, 10) : null;
 
-          const teamName = getValue('team').toLowerCase();
-          const teamId = teamName ? (teamMap.get(teamName) || null) : null;
+          // Collect required exams from every mapped הערה column.
+          const exams = examColumns
+            .map(col => String(row[col] ?? '').trim())
+            .filter(Boolean);
 
-          const medicalStatus = getValue('medical_status') || 'pending';
+          const existing = findByPersonal.get(personalNumber) as { id: number } | undefined;
+          let diverId: number;
+          if (existing) {
+            updateDiver.run(
+              firstName, lastName, fitnessStatus, statusDate, expiryDate,
+              unfitDays, lastExamDate, existing.id
+            );
+            diverId = existing.id;
+            updated++;
+          } else {
+            const result = insertDiver.run(
+              firstName, lastName, personalNumber,
+              getValue('id_number'), getValue('phone'), getValue('email'),
+              fitnessStatus, statusDate, expiryDate, unfitDays, lastExamDate,
+              getValue('notes')
+            );
+            diverId = result.lastInsertRowid as number;
+            created++;
+          }
 
-          upsert.run(
-            firstName, lastName, idNumber,
-            getValue('phone'), getValue('email'),
-            certId, getValue('certification_expiry') || null,
-            ['valid', 'expired', 'pending'].includes(medicalStatus) ? medicalStatus : 'pending',
-            getValue('medical_expiry_date') || null,
-            teamId, getValue('notes')
-          );
+          // Replace the diver's required-exam list with this row's exams.
+          deleteExams.run(diverId);
+          exams.forEach((exam, idx) => insertExam.run(diverId, exam, idx));
+
           imported++;
         } catch (e: any) {
           errors.push(`שורה ${i + 2}: ${e.message}`);
@@ -140,7 +191,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
     });
 
     importAll();
-    res.json({ imported, errors, total: rows.length });
+    res.json({ imported, created, updated, errors, total: rows.length });
   } catch {
     res.status(400).json({ error: 'שגיאה בעיבוד הקובץ' });
   }
