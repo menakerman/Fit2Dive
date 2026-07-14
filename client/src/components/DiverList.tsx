@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
-import { fitnessBadgeClass, fitnessLabel } from '../lib/fitness';
+import { fitnessBadgeClass, fitnessLabel, formatUnfitDays } from '../lib/fitness';
 import type { DiverWithDetails } from '../../../shared/types';
 
 export default function DiverList() {
@@ -92,6 +92,7 @@ export default function DiverList() {
                       </span>
                     ) : '-'}
                   </span>
+                  <span>ימי אי כשירות: {d.unfit_days != null ? formatUnfitDays(d.unfit_days) : '-'}</span>
                   <span>צוותים: {d.team_names}</span>
                 </div>
               </div>
@@ -109,6 +110,7 @@ export default function DiverList() {
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">הסמכות</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">סטטוס כשירות</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">תוקף כשירות</th>
+                    <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">ימי אי כשירות</th>
                     <th className="px-4 py-3 text-right text-sm font-semibold text-gray-600">צוותים</th>
                   </tr>
                 </thead>
@@ -133,6 +135,9 @@ export default function DiverList() {
                             {new Date(d.fitness_expiry_date).toLocaleDateString('he-IL')}
                           </span>
                         ) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap" title={d.unfit_days != null ? formatUnfitDays(d.unfit_days) : ''}>
+                        {d.unfit_days != null ? `${d.unfit_days} ימים` : '-'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">{d.team_names}</td>
                     </tr>

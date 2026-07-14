@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
-import { FITNESS_STATUSES } from '../lib/fitness';
+import { FITNESS_STATUSES, formatUnfitDays } from '../lib/fitness';
 import type { CertificationLevel, Team, DiverWithDetails, DiverCertification } from '../../../shared/types';
 
 type FieldErrors = Record<string, string>;
@@ -25,6 +25,9 @@ export default function DiverForm() {
     fitness_status_date: '',
     fitness_expiry_date: '',
     last_exam_date: '',
+    // Read-only, sourced from the import; kept in form state so it round-trips
+    // on save and is not wiped.
+    unfit_days: null as number | null,
     notes: '',
     team_ids: [] as number[],
     required_exams: [] as string[],
@@ -54,6 +57,7 @@ export default function DiverForm() {
             fitness_status_date: d.fitness_status_date || '',
             fitness_expiry_date: d.fitness_expiry_date || '',
             last_exam_date: d.last_exam_date || '',
+            unfit_days: d.unfit_days,
             notes: d.notes,
             team_ids: d.teams.map(t => t.id),
             required_exams: d.required_exams || [],
@@ -195,6 +199,16 @@ export default function DiverForm() {
           <Field label="תוקף כשירות" value={form.fitness_expiry_date} onChange={v => update('fitness_expiry_date', v)} type="date" />
           <Field label="תאריך בדיקה אחרון" value={form.last_exam_date} onChange={v => update('last_exam_date', v)} type="date" />
         </div>
+
+        {form.unfit_days != null && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ימי אי כשירות</label>
+            <div className="w-full px-3 sm:px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700">
+              {formatUnfitDays(form.unfit_days)}
+            </div>
+            <p className="text-gray-400 text-xs mt-1">מתעדכן מקובץ הכשירות ואינו ניתן לעריכה ידנית.</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">בדיקות נדרשות</label>
