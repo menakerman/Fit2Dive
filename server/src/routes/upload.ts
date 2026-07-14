@@ -109,9 +109,11 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     `);
+    // Updating an existing diver only touches fitness/status data. Identity and
+    // contact fields (name, personal_number, id_number, phone, email) are left
+    // exactly as they are — the import must not overwrite them.
     const updateDiver = db.prepare(`
       UPDATE divers SET
-        first_name = ?, last_name = ?,
         fitness_status = ?, fitness_status_date = ?, fitness_expiry_date = ?,
         unfit_days = ?, last_exam_date = ?, medical_last_updated = datetime('now'),
         updated_at = datetime('now')
@@ -135,15 +137,19 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
           };
 
           const personalNumber = getValue('personal_number');
-          const firstName = getValue('first_name');
-          const lastName = getValue('last_name');
-
           if (!personalNumber) {
             errors.push(`שורה ${i + 2}: מספר אישי חסר`);
             continue;
           }
-          if (!firstName || !lastName) {
-            errors.push(`שורה ${i + 2}: שם פרטי ושם משפחה נדרשים`);
+
+          const existing = findByPersonal.get(personalNumber) as { id: number } | undefined;
+
+          // Name is only needed to create a new diver; for an existing diver the
+          // identity/contact fields are never overwritten by the import.
+          const firstName = getValue('first_name');
+          const lastName = getValue('last_name');
+          if (!existing && (!firstName || !lastName)) {
+            errors.push(`שורה ${i + 2}: שם פרטי ושם משפחה נדרשים לצולל חדש`);
             continue;
           }
 
@@ -159,11 +165,10 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
             .map(col => String(row[col] ?? '').trim())
             .filter(Boolean);
 
-          const existing = findByPersonal.get(personalNumber) as { id: number } | undefined;
           let diverId: number;
           if (existing) {
             updateDiver.run(
-              firstName, lastName, fitnessStatus, statusDate, expiryDate,
+              fitnessStatus, statusDate, expiryDate,
               unfitDays, lastExamDate, existing.id
             );
             diverId = existing.id;
