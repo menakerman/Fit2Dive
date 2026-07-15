@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
@@ -11,9 +11,10 @@ export default function DiverList() {
   const [loading, setLoading] = useState(true);
   const [certLevels, setCertLevels] = useState<CertificationLevel[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [certFilter, setCertFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [teamFilter, setTeamFilter] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [certFilter, setCertFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [teamFilter, setTeamFilter] = useState<string[]>([]);
   const navigate = useNavigate();
   const hasRole = useAuthStore(s => s.hasRole);
 
@@ -36,15 +37,23 @@ export default function DiverList() {
   };
 
   // Client-side filters applied on top of the (server-side) search results.
+  // Each dimension is multi-select: a diver matches when it equals ANY of the
+  // selected values in that dimension (OR within a dimension, AND across them).
   const filteredDivers = divers.filter(d => {
-    if (certFilter && !d.certifications.some(c => String(c.certification_level_id) === certFilter)) return false;
-    if (statusFilter && d.fitness_status !== statusFilter) return false;
-    if (teamFilter && !d.teams.some(t => String(t.id) === teamFilter)) return false;
+    if (certFilter.length && !d.certifications.some(c => certFilter.includes(String(c.certification_level_id)))) return false;
+    if (statusFilter.length && !statusFilter.includes(d.fitness_status)) return false;
+    if (teamFilter.length && !d.teams.some(t => teamFilter.includes(String(t.id)))) return false;
     return true;
   });
 
-  const activeFilters = (certFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (teamFilter ? 1 : 0);
-  const clearFilters = () => { setCertFilter(''); setStatusFilter(''); setTeamFilter(''); };
+  const activeFilters = certFilter.length + statusFilter.length + teamFilter.length;
+  const clearFilters = () => { setCertFilter([]); setStatusFilter([]); setTeamFilter([]); };
+
+  // Toggle a value in one of the multi-select filter arrays.
+  const toggleValue = (
+    setter: Dispatch<SetStateAction<string[]>>,
+    value: string,
+  ) => setter(prev => (prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]));
 
   const isExpiringSoon = (date: string | null) => {
     if (!date) return false;
@@ -85,38 +94,56 @@ export default function DiverList() {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <select
-          value={certFilter}
-          onChange={e => setCertFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+      {/* Filters toggle */}
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition ${
+            showFilters || activeFilters > 0
+              ? 'bg-blue-50 border-blue-300 text-blue-700'
+              : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
+          }`}
         >
-          <option value="">כל ההסמכות</option>
-          {certLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">כל סטטוסי הכשירות</option>
-          {FITNESS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
-          value={teamFilter}
-          onChange={e => setTeamFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
-        >
-          <option value="">כל הצוותים</option>
-          {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-        </select>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v1.586a1 1 0 01-.293.707L12 11v4a1 1 0 01-.553.894l-2 1A1 1 0 018 16v-5L3.293 6.293A1 1 0 013 5.586V4z" clipRule="evenodd" />
+          </svg>
+          פילטרים
+          {activeFilters > 0 && (
+            <span className="bg-blue-600 text-white rounded-full text-xs px-1.5 py-0.5 leading-none">{activeFilters}</span>
+          )}
+        </button>
         {activeFilters > 0 && (
-          <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline px-2 py-2">
-            נקה סינון ({activeFilters})
+          <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline px-1 py-2">
+            נקה סינון
           </button>
         )}
       </div>
+
+      {/* Filters panel */}
+      {showFilters && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 space-y-4">
+          <FilterGroup
+            label="הסמכות"
+            options={certLevels.map(c => ({ value: String(c.id), label: c.name }))}
+            selected={certFilter}
+            onToggle={v => toggleValue(setCertFilter, v)}
+            empty="לא הוגדרו הסמכות"
+          />
+          <FilterGroup
+            label="סטטוס כשירות"
+            options={FITNESS_STATUSES.map(s => ({ value: s, label: s }))}
+            selected={statusFilter}
+            onToggle={v => toggleValue(setStatusFilter, v)}
+          />
+          <FilterGroup
+            label="צוותים"
+            options={teams.map(t => ({ value: String(t.id), label: t.name }))}
+            selected={teamFilter}
+            onToggle={v => toggleValue(setTeamFilter, v)}
+            empty="לא הוגדרו צוותים"
+          />
+        </div>
+      )}
 
       {loading ? (
         <div className="text-center py-10 text-gray-500">טוען...</div>
@@ -205,6 +232,44 @@ export default function DiverList() {
             </div>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+// A labelled group of multi-select filter chips.
+function FilterGroup({ label, options, selected, onToggle, empty }: {
+  label: string;
+  options: { value: string; label: string }[];
+  selected: string[];
+  onToggle: (value: string) => void;
+  empty?: string;
+}) {
+  return (
+    <div>
+      <div className="text-sm font-medium text-gray-700 mb-2">{label}</div>
+      {options.length === 0 ? (
+        <div className="text-xs text-gray-400">{empty || 'אין אפשרויות'}</div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {options.map(o => {
+            const active = selected.includes(o.value);
+            return (
+              <button
+                key={o.value}
+                type="button"
+                onClick={() => onToggle(o.value)}
+                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm border transition ${
+                  active
+                    ? 'bg-blue-100 border-blue-400 text-blue-800 font-medium'
+                    : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
