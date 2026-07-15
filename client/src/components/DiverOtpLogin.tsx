@@ -4,6 +4,13 @@ import { useAuthStore } from '../stores/authStore';
 
 type Step = 'phone' | 'otp';
 
+// Human-readable message about how the code was delivered.
+function deliveryMessage(data: any): string {
+  if (data.sms_sent) return `קוד אימות נשלח בהודעת SMS למספר ${data.phone_hint || 'שלך'}.`;
+  if (data.email_sent) return `קוד אימות נשלח לכתובת ${data.email_hint || 'שלך'}.`;
+  return 'קוד אימות נשלח.';
+}
+
 export default function DiverOtpLogin() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -11,7 +18,7 @@ export default function DiverOtpLogin() {
   const [code, setCode] = useState('');
   const [diverId, setDiverId] = useState<number>(0);
   const [tempOtp, setTempOtp] = useState('');
-  const [emailHint, setEmailHint] = useState('');
+  const [sentInfo, setSentInfo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
@@ -39,7 +46,7 @@ export default function DiverOtpLogin() {
       if (!res.ok) { setError(data.error); return; }
       setDiverId(data.diver_id);
       setTempOtp(data.otp_code || '');
-      setEmailHint(data.email_sent ? (data.email_hint || '') : '');
+      setSentInfo(deliveryMessage(data));
       setStep('otp');
       setCountdown(300);
       setTimeout(() => codeInputRef.current?.focus(), 100);
@@ -85,7 +92,7 @@ export default function DiverOtpLogin() {
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       setTempOtp(data.otp_code || '');
-      setEmailHint(data.email_sent ? (data.email_hint || '') : '');
+      setSentInfo(deliveryMessage(data));
       setCountdown(300);
     } catch {
       setError('שגיאת תקשורת');
@@ -155,9 +162,7 @@ export default function DiverOtpLogin() {
         {step === 'otp' && (
           <form onSubmit={verifyOtp} className="space-y-4">
             <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm text-center">
-              {emailHint
-                ? `קוד אימות נשלח לכתובת ${emailHint}. `
-                : 'קוד אימות נשלח. '}
+              {sentInfo}{' '}
               הקוד תקף ל-{countdown > 0 ? formatTime(countdown) : 'פג תוקף'}
             </div>
             {tempOtp && (
