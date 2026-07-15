@@ -3,6 +3,7 @@ import multer from 'multer';
 import * as XLSX from 'xlsx';
 import db from '../db';
 import { authenticate, requireRole } from '../middleware/auth';
+import { normalizePhone } from '../phone';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -176,7 +177,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
           } else {
             const result = insertDiver.run(
               firstName, lastName, personalNumber,
-              getValue('id_number'), getValue('phone'), getValue('email'),
+              getValue('id_number'), normalizePhone(getValue('phone')), getValue('email'),
               fitnessStatus, statusDate, expiryDate, unfitDays, lastExamDate,
               getValue('notes')
             );

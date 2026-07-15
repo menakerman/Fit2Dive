@@ -3,6 +3,7 @@ import db from '../db';
 import { signToken, authenticate, requireRole } from '../middleware/auth';
 import { sendOtpEmail, isEmailConfigured } from '../email';
 import { sendOtpSms, isSmsConfigured } from '../sms';
+import { normalizePhone } from '../phone';
 
 function getConfig(key: string, fallback: string): string {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key) as { value: string } | undefined;
@@ -20,12 +21,14 @@ router.post('/request-otp', async (req: Request, res: Response) => {
   }
 
   // Divers identify with phone + personal number (מספר אישי): the national ID
-  // is optional, while the personal number is mandatory for every diver.
+  // is optional, while the personal number is mandatory for every diver. The
+  // phone is normalized to its canonical form so any valid format the diver
+  // types matches the stored number.
   const diver = db.prepare(`
-    SELECT id, first_name, last_name, personal_number, email
+    SELECT id, first_name, last_name, personal_number, email, phone
     FROM divers
     WHERE phone = ? AND personal_number = ?
-  `).get(phone.trim(), personal_number.trim()) as any;
+  `).get(normalizePhone(phone), personal_number.trim()) as any;
 
   if (!diver) {
     res.status(404).json({ error: 'פרטים לא נמצאו' });
@@ -62,7 +65,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
   console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.personal_number}): ${code}`);
 
   const orgName = getConfig('org_name', 'Fit2Dive');
-  const diverPhone = phone.trim();
+  const diverPhone = diver.phone || normalizePhone(phone);
 
   // Deliver the code by SMS first (the diver logs in with their phone), then
   // fall back to email, then to returning it on screen for testing.
