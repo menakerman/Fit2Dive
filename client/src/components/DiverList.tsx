@@ -77,7 +77,7 @@ export default function DiverList() {
         )}
       </div>
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-3">
         <input
           type="text"
           placeholder="חיפוש לפי שם או מספר אישי..."
@@ -87,18 +87,8 @@ export default function DiverList() {
           className="flex-1 min-w-0 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
         />
         <button
-          onClick={handleSearch}
-          className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-sm font-medium shrink-0"
-        >
-          חיפוש
-        </button>
-      </div>
-
-      {/* Filters toggle */}
-      <div className="flex items-center gap-2 mb-3">
-        <button
           onClick={() => setShowFilters(v => !v)}
-          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition ${
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition shrink-0 ${
             showFilters || activeFilters > 0
               ? 'bg-blue-50 border-blue-300 text-blue-700'
               : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'
@@ -107,17 +97,26 @@ export default function DiverList() {
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v1.586a1 1 0 01-.293.707L12 11v4a1 1 0 01-.553.894l-2 1A1 1 0 018 16v-5L3.293 6.293A1 1 0 013 5.586V4z" clipRule="evenodd" />
           </svg>
-          פילטרים
+          <span className="hidden sm:inline">פילטרים</span>
           {activeFilters > 0 && (
             <span className="bg-blue-600 text-white rounded-full text-xs px-1.5 py-0.5 leading-none">{activeFilters}</span>
           )}
         </button>
-        {activeFilters > 0 && (
-          <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline px-1 py-2">
+        <button
+          onClick={handleSearch}
+          className="px-3 sm:px-4 py-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition text-sm font-medium shrink-0"
+        >
+          חיפוש
+        </button>
+      </div>
+
+      {activeFilters > 0 && (
+        <div className="mb-3">
+          <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline">
             נקה סינון
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filters panel */}
       {showFilters && (
