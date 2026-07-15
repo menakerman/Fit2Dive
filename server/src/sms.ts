@@ -47,12 +47,15 @@ async function sendSms(to: string, message: string): Promise<SendResult> {
   const number = normalizePhone(to);
 
   // 019 expects the payload wrapped in an `sms` object with the account
-  // username under `user`. The token goes in the Authorization header.
+  // username under `user`, and (for a single recipient) the destination phone
+  // as a plain string. The token goes in the Authorization header.
+  // NB: 019's /api/test endpoint does not validate the destinations field, so
+  // this shape was confirmed against the live endpoint.
   const body = {
     sms: {
       user: { username },
       source,
-      destinations: { phone: [{ number }] },
+      destinations: { phone: number },
       message,
     },
   };
