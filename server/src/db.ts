@@ -239,6 +239,14 @@ export function initDb() {
   seedConfig.run('default_certification_levels', 'מדריך התאחדות, מדריך מכין התאחדות, מדריך בוחן התאחדות, מד"ר התאחדות, סטאז מכין');
   seedConfig.run('default_teams', '');
 
+  // The system was renamed from "מרי"/"Mery" to Fit2Dive. Older databases may
+  // still hold the legacy org name in config, which surfaces in the OTP SMS and
+  // email branding — correct it so the app never displays the old name.
+  db.prepare(
+    `UPDATE config SET value = 'Fit2Dive', updated_at = datetime('now')
+     WHERE key = 'org_name' AND value IN ('מרי', 'Mery', 'mery')`
+  ).run();
+
   // Seed default certification levels if none exist
   const certCount = db.prepare('SELECT COUNT(*) as count FROM certification_levels').get() as { count: number };
   if (certCount.count === 0) {
