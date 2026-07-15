@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import db from '../db';
 import { signToken, authenticate, requireRole } from '../middleware/auth';
 import { sendOtpEmail, isEmailConfigured } from '../email';
+import { sendOtpSms, isSmsConfigured } from '../sms';
 
 function getConfig(key: string, fallback: string): string {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key) as { value: string } | undefined;
@@ -60,11 +61,24 @@ router.post('/request-otp', async (req: Request, res: Response) => {
 
   console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.personal_number}): ${code}`);
 
+  const orgName = getConfig('org_name', 'Fit2Dive');
+  const diverPhone = phone.trim();
+
+  // Deliver the code by SMS first (the diver logs in with their phone), then
+  // fall back to email, then to returning it on screen for testing.
+  let smsSent = false;
+  if (diverPhone && isSmsConfigured()) {
+    const result = await sendOtpSms(diverPhone, code, orgName);
+    smsSent = result.ok;
+    if (!result.ok) {
+      console.error(`[OTP] SMS to ${diverPhone} failed: ${result.error}`);
+    }
+  }
+
   // Try to email the code to the diver, when they have an address and
   // SendGrid is configured.
   let emailSent = false;
-  if (diver.email && isEmailConfigured()) {
-    const orgName = getConfig('org_name', 'Fit2Dive');
+  if (!smsSent && diver.email && isEmailConfigured()) {
     const result = await sendOtpEmail(diver.email, code, orgName);
     emailSent = result.ok;
     if (!result.ok) {
@@ -72,17 +86,26 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     }
   }
 
-  // When the code was emailed, don't expose it in the response. Otherwise
-  // fall back to returning it (for divers without email / unconfigured mail).
-  const maskedEmail = emailSent ? maskEmail(diver.email) : undefined;
+  // When the code was delivered (SMS or email), don't expose it in the
+  // response. Otherwise fall back to returning it (unconfigured delivery).
+  const delivered = smsSent || emailSent;
   res.json({
     success: true,
     diver_id: diver.id,
+    sms_sent: smsSent,
+    phone_hint: smsSent ? maskPhone(diverPhone) : undefined,
     email_sent: emailSent,
-    email_hint: maskedEmail,
-    otp_code: emailSent ? undefined : code,
+    email_hint: emailSent ? maskEmail(diver.email) : undefined,
+    otp_code: delivered ? undefined : code,
   });
 });
+
+// Masks a phone for display, e.g. "0501234567" -> "050****567".
+function maskPhone(phone: string): string {
+  const p = phone.replace(/[\s-]/g, '');
+  if (p.length < 6) return p;
+  return `${p.slice(0, 3)}${'*'.repeat(p.length - 6)}${p.slice(-3)}`;
+}
 
 // Masks an email for display, e.g. "john.doe@gmail.com" -> "jo***@gmail.com".
 function maskEmail(email: string): string {

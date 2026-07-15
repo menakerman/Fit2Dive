@@ -50,9 +50,15 @@ losing data.
 | `DATA_DIR` | **Yes (prod)** | Absolute path to the persistent data directory (the mounted volume). Server refuses to start in production without it. |
 | `JWT_SECRET` | Yes (prod) | Secret for signing auth tokens. Falls back to an insecure default if unset. |
 | `PORT` | No | HTTP port (default 3001). |
+| `SMS_019_TOKEN` | No | 019 SMS API token (sent as `Authorization: Bearer`). Enables SMS OTP. |
+| `SMS_019_USERNAME` | No | 019 account username. |
+| `SMS_019_SOURCE` | No | Approved 019 sender ID (≤11 chars). |
+| `SMS_019_API_URL` | No | Override the 019 endpoint; set to `https://019sms.co.il/api/test` to validate without sending. Defaults to production. |
 | `SENDGRID_API_KEY` | No | Enables emailing diver OTP codes. |
 | `SENDGRID_FROM_EMAIL` | No | Verified SendGrid sender address. |
 | `SENDGRID_FROM_NAME` | No | Sender display name (defaults to the org name). |
+
+OTP delivery order: **SMS (019)** if configured and the diver has a phone → **email** (SendGrid) if configured and the diver has an address → otherwise the code is returned on screen (testing fallback).
 
 ## Backups
 
