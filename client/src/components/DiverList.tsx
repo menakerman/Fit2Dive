@@ -2,13 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
-import { fitnessBadgeClass, fitnessLabel, formatUnfitDays } from '../lib/fitness';
-import type { DiverWithDetails } from '../../../shared/types';
+import { fitnessBadgeClass, fitnessLabel, formatUnfitDays, FITNESS_STATUSES } from '../lib/fitness';
+import type { DiverWithDetails, CertificationLevel, Team } from '../../../shared/types';
 
 export default function DiverList() {
   const [divers, setDivers] = useState<DiverWithDetails[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [certLevels, setCertLevels] = useState<CertificationLevel[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [certFilter, setCertFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [teamFilter, setTeamFilter] = useState('');
   const navigate = useNavigate();
   const hasRole = useAuthStore(s => s.hasRole);
 
@@ -19,12 +24,27 @@ export default function DiverList() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { fetchDivers(); }, []);
+  useEffect(() => {
+    fetchDivers();
+    api.get<CertificationLevel[]>('/certifications').then(setCertLevels).catch(() => {});
+    api.get<Team[]>('/teams').then(setTeams).catch(() => {});
+  }, []);
 
   const handleSearch = () => {
     setLoading(true);
     fetchDivers(search);
   };
+
+  // Client-side filters applied on top of the (server-side) search results.
+  const filteredDivers = divers.filter(d => {
+    if (certFilter && !d.certifications.some(c => String(c.certification_level_id) === certFilter)) return false;
+    if (statusFilter && d.fitness_status !== statusFilter) return false;
+    if (teamFilter && !d.teams.some(t => String(t.id) === teamFilter)) return false;
+    return true;
+  });
+
+  const activeFilters = (certFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (teamFilter ? 1 : 0);
+  const clearFilters = () => { setCertFilter(''); setStatusFilter(''); setTeamFilter(''); };
 
   const isExpiringSoon = (date: string | null) => {
     if (!date) return false;
@@ -34,7 +54,10 @@ export default function DiverList() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">רשימת צוללים</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+          רשימת צוללים
+          {!loading && <span className="text-sm font-normal text-gray-400 mr-2">({filteredDivers.length})</span>}
+        </h2>
         {hasRole('manager', 'secretary', 'madar') && (
           <button
             onClick={() => navigate('/divers/new')}
@@ -62,15 +85,50 @@ export default function DiverList() {
         </button>
       </div>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select
+          value={certFilter}
+          onChange={e => setCertFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">כל ההסמכות</option>
+          {certLevels.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">כל סטטוסי הכשירות</option>
+          {FITNESS_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+        <select
+          value={teamFilter}
+          onChange={e => setTeamFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">כל הצוותים</option>
+          {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+        </select>
+        {activeFilters > 0 && (
+          <button onClick={clearFilters} className="text-sm text-blue-600 hover:underline px-2 py-2">
+            נקה סינון ({activeFilters})
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="text-center py-10 text-gray-500">טוען...</div>
-      ) : divers.length === 0 ? (
-        <div className="text-center py-10 text-gray-400">אין צוללים להצגה</div>
+      ) : filteredDivers.length === 0 ? (
+        <div className="text-center py-10 text-gray-400">
+          {divers.length === 0 ? 'אין צוללים להצגה' : 'אין צוללים התואמים לסינון'}
+        </div>
       ) : (
         <>
           {/* Mobile card view */}
           <div className="sm:hidden space-y-3">
-            {divers.map(d => (
+            {filteredDivers.map(d => (
               <div
                 key={d.id}
                 onClick={() => navigate(`/divers/${d.id}`)}
@@ -115,7 +173,7 @@ export default function DiverList() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {divers.map(d => (
+                  {filteredDivers.map(d => (
                     <tr
                       key={d.id}
                       onClick={() => navigate(`/divers/${d.id}`)}
