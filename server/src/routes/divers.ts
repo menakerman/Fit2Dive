@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import db from '../db';
 import { authenticate, requireRole } from '../middleware/auth';
+import { normalizePhone } from '../phone';
 
 const router = Router();
 router.use(authenticate);
@@ -113,7 +114,9 @@ router.post('/', requireRole('manager', 'secretary', 'madar'), (req: Request, re
     res.status(400).json({ error: 'שם פרטי, שם משפחה ומספר אישי נדרשים' });
     return;
   }
-  if (!phone) {
+  // Store the phone in canonical form so any valid format matches at login.
+  const normPhone = normalizePhone(phone);
+  if (!normPhone) {
     res.status(400).json({ error: 'מספר טלפון הוא שדה חובה' });
     return;
   }
@@ -139,7 +142,7 @@ router.post('/', requireRole('manager', 'secretary', 'madar'), (req: Request, re
       )
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
     `).run(
-      first_name, last_name, personal_number, id_number || '', phone || '', email || '',
+      first_name, last_name, personal_number, id_number || '', normPhone, email || '',
       fitness_status || 'טרם נבדק', fitness_status_date || null, fitness_expiry_date || null,
       unfit_days ?? null, last_exam_date || null, notes || ''
     );
@@ -184,7 +187,8 @@ router.put('/:id', requireRole('manager', 'secretary', 'madar'), (req: Request, 
     last_exam_date, notes, team_ids, required_exams,
   } = req.body;
 
-  if (!phone) {
+  const normPhone = normalizePhone(phone);
+  if (!normPhone) {
     res.status(400).json({ error: 'מספר טלפון הוא שדה חובה' });
     return;
   }
@@ -198,7 +202,7 @@ router.put('/:id', requireRole('manager', 'secretary', 'madar'), (req: Request, 
         notes = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
-      first_name, last_name, personal_number || '', id_number || '', phone || '', email || '',
+      first_name, last_name, personal_number || '', id_number || '', normPhone, email || '',
       fitness_status || 'טרם נבדק', fitness_status_date || null, fitness_expiry_date || null,
       unfit_days ?? null, last_exam_date || null, notes || '', id
     );

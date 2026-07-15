@@ -11,6 +11,8 @@
 // If any credential is missing, sending is skipped and the caller can fall back
 // to another delivery method.
 
+import { normalizePhone } from './phone';
+
 const DEFAULT_API_URL = 'https://019sms.co.il/api';
 
 export function isSmsConfigured(): boolean {
@@ -24,15 +26,6 @@ export function isSmsConfigured(): boolean {
 interface SendResult {
   ok: boolean;
   error?: string;
-}
-
-// Normalizes a phone number to the local Israeli format 019 expects
-// (05xxxxxxxx): strips spaces/dashes and converts a +972/972 prefix to a
-// leading 0.
-function normalizePhone(phone: string): string {
-  let p = (phone || '').replace(/[\s-()]/g, '').replace(/^\+/, '');
-  if (p.startsWith('972')) p = '0' + p.slice(3);
-  return p;
 }
 
 async function sendSms(to: string, message: string): Promise<SendResult> {

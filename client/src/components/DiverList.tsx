@@ -161,7 +161,10 @@ export default function DiverList() {
                 className="bg-white rounded-xl shadow-sm p-4 active:bg-blue-50 transition cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-gray-800">{d.first_name} {d.last_name}</span>
+                  <span className="font-semibold text-gray-800 inline-flex items-center gap-1.5">
+                    {d.first_name} {d.last_name}
+                    {d.phone && <PhoneIcon />}
+                  </span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fitnessBadgeClass(d.fitness_status)}`}>
                     {fitnessLabel(d.fitness_status)}
                   </span>
@@ -205,7 +208,12 @@ export default function DiverList() {
                       onClick={() => navigate(`/divers/${d.id}`)}
                       className="hover:bg-blue-50 cursor-pointer transition"
                     >
-                      <td className="px-4 py-3 font-medium">{d.first_name} {d.last_name}</td>
+                      <td className="px-4 py-3 font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {d.first_name} {d.last_name}
+                          {d.phone && <PhoneIcon />}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 text-gray-600">{d.personal_number}</td>
                       <td className="px-4 py-3">{d.certification_names}</td>
                       <td className="px-4 py-3">
@@ -233,6 +241,24 @@ export default function DiverList() {
         </>
       )}
     </div>
+  );
+}
+
+// Small indicator shown next to a diver who has a phone number on record
+// (required for OTP login).
+function PhoneIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className="h-3.5 w-3.5 text-green-600 shrink-0"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      role="img"
+      aria-label="מספר טלפון מוזן"
+    >
+      <title>מספר טלפון מוזן</title>
+      <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
+    </svg>
   );
 }
 
