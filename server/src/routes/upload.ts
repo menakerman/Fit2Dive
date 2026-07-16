@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import db from '../db';
 import { authenticate, requireRole } from '../middleware/auth';
 import { normalizePhone } from '../phone';
+import { normalizePersonalNumber } from '../personalNumber';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
@@ -137,7 +138,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
             return col ? String(row[col] ?? '').trim() : '';
           };
 
-          const personalNumber = getValue('personal_number');
+          const personalNumber = normalizePersonalNumber(getValue('personal_number'));
           if (!personalNumber) {
             errors.push(`שורה ${i + 2}: מספר אישי חסר`);
             continue;
