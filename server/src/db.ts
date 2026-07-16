@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
+import { normalizePersonalNumber } from './personalNumber';
 
 // The SQLite database is the system's durable store, so it MUST live on
 // persistent storage that survives restarts, redeploys and container
@@ -246,6 +247,32 @@ export function initDb() {
     `UPDATE config SET value = 'Fit2Dive', updated_at = datetime('now')
      WHERE key = 'org_name' AND value IN ('מרי', 'Mery', 'mery')`
   ).run();
+
+  // Normalize personal numbers to the canonical 7-digit form (strip a leading
+  // zero left over from the 8-digit legacy/import form). Collision-safe: skips
+  // any value that would clash with an existing diver. Idempotent — once
+  // stripped there are no more leading-zero values to process.
+  const zeroPrefixed = db.prepare(
+    "SELECT id, personal_number FROM divers WHERE personal_number LIKE '0%'"
+  ).all() as { id: number; personal_number: string }[];
+  if (zeroPrefixed.length) {
+    const clash = db.prepare('SELECT 1 FROM divers WHERE personal_number = ? AND id != ?');
+    const setPn = db.prepare('UPDATE divers SET personal_number = ? WHERE id = ?');
+    let stripped = 0, skipped = 0;
+    const run = db.transaction(() => {
+      for (const d of zeroPrefixed) {
+        const norm = normalizePersonalNumber(d.personal_number);
+        if (!norm || norm === d.personal_number) continue;
+        if (clash.get(norm, d.id)) { skipped++; continue; }
+        setPn.run(norm, d.id);
+        stripped++;
+      }
+    });
+    run();
+    if (stripped || skipped) {
+      console.log(`Normalized personal numbers: ${stripped} stripped, ${skipped} skipped (collision)`);
+    }
+  }
 
   // Seed default certification levels if none exist
   const certCount = db.prepare('SELECT COUNT(*) as count FROM certification_levels').get() as { count: number };

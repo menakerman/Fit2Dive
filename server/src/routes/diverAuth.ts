@@ -4,6 +4,7 @@ import { signToken, authenticate, requireRole } from '../middleware/auth';
 import { sendOtpEmail, isEmailConfigured } from '../email';
 import { sendOtpSms, isSmsConfigured } from '../sms';
 import { normalizePhone } from '../phone';
+import { normalizePersonalNumber } from '../personalNumber';
 
 function getConfig(key: string, fallback: string): string {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key) as { value: string } | undefined;
@@ -28,7 +29,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     SELECT id, first_name, last_name, personal_number, email, phone
     FROM divers
     WHERE phone = ? AND personal_number = ?
-  `).get(normalizePhone(phone), personal_number.trim()) as any;
+  `).get(normalizePhone(phone), normalizePersonalNumber(personal_number)) as any;
 
   if (!diver) {
     res.status(404).json({ error: 'פרטים לא נמצאו' });
