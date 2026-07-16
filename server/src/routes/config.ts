@@ -4,6 +4,14 @@ import { authenticate, requireRole } from '../middleware/auth';
 
 const router = Router();
 router.use(authenticate);
+
+// When a כשירות file was last imported. Available to all staff (shown in the
+// header), so it is registered before the manager-only guard below.
+router.get('/last-fitness-import', requireRole('manager', 'secretary', 'madar'), (_req: Request, res: Response) => {
+  const row = db.prepare("SELECT value FROM config WHERE key = 'last_fitness_import_at'").get() as { value: string } | undefined;
+  res.json({ last_fitness_import_at: row?.value || null });
+});
+
 router.use(requireRole('manager'));
 
 // Get all config

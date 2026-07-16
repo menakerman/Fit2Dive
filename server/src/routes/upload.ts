@@ -198,6 +198,14 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
     });
 
     importAll();
+
+    // Record when a כשירות file was last imported (shown in the staff header).
+    db.prepare(`
+      INSERT INTO config (key, value, updated_at)
+      VALUES ('last_fitness_import_at', datetime('now'), datetime('now'))
+      ON CONFLICT(key) DO UPDATE SET value = datetime('now'), updated_at = datetime('now')
+    `).run();
+
     res.json({ imported, created, updated, errors, total: rows.length });
   } catch {
     res.status(400).json({ error: 'שגיאה בעיבוד הקובץ' });
