@@ -3,6 +3,7 @@ import path from 'path';
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import { normalizePersonalNumber } from './personalNumber';
+import { normalizePhone } from './phone';
 
 // The SQLite database is the system's durable store, so it MUST live on
 // persistent storage that survives restarts, redeploys and container
@@ -271,6 +272,32 @@ export function initDb() {
     run();
     if (stripped || skipped) {
       console.log(`Normalized personal numbers: ${stripped} stripped, ${skipped} skipped (collision)`);
+    }
+  }
+
+  // Normalize legacy stored phone numbers to canonical form. Phones entered
+  // before phone normalization was added (or restored from old data) may hold
+  // separators, which breaks OTP login (the entered phone is normalized but the
+  // stored one is compared as-is). Collision-safe and idempotent.
+  const storedPhones = db.prepare(
+    "SELECT id, phone FROM divers WHERE phone != ''"
+  ).all() as { id: number; phone: string }[];
+  {
+    const clashPhone = db.prepare('SELECT 1 FROM divers WHERE phone = ? AND id != ?');
+    const setPhone = db.prepare('UPDATE divers SET phone = ? WHERE id = ?');
+    let phoneFixed = 0, phoneSkipped = 0;
+    const runPhones = db.transaction(() => {
+      for (const d of storedPhones) {
+        const norm = normalizePhone(d.phone);
+        if (!norm || norm === d.phone) continue;
+        if (clashPhone.get(norm, d.id)) { phoneSkipped++; continue; }
+        setPhone.run(norm, d.id);
+        phoneFixed++;
+      }
+    });
+    runPhones();
+    if (phoneFixed || phoneSkipped) {
+      console.log(`Normalized phones: ${phoneFixed} fixed, ${phoneSkipped} skipped (collision)`);
     }
   }
 
