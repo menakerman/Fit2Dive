@@ -32,7 +32,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
   `).get(normalizePhone(phone), normalizePersonalNumber(personal_number)) as any;
 
   if (!diver) {
-    res.status(404).json({ error: 'פרטים לא נמצאו' });
+    res.status(404).json({ error: 'פרטים לא נמצאו. יש לפנות למיכאל חמדי לברור הפרטים' });
     return;
   }
 
