@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/authStore';
 import type { CertificationLevel, Team, User } from '../../../shared/types';
 
 type Tab = 'certifications' | 'teams' | 'users' | 'settings';
@@ -190,6 +191,9 @@ function UsersTab() {
   const [editId, setEditId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  // Reveal-password toggle is available only to the admin account.
+  const isAdmin = useAuthStore(s => s.user?.username === 'admin');
 
   const load = () => {
     api.get<User[]>('/users').then(setItems);
@@ -272,10 +276,29 @@ function UsersTab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
             <input placeholder="שם משתמש" value={form.username} onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
               className="px-3 py-2 border rounded-lg text-sm" />
-            <input placeholder={editId ? 'סיסמה חדשה (ריק = ללא שינוי)' : 'סיסמה'} type="password"
-              value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-              onFocus={e => { if (editId && form.password === '••••••') setForm(p => ({ ...p, password: '' })); }}
-              className="px-3 py-2 border rounded-lg text-sm" />
+            <div className="relative">
+              <input placeholder={editId ? 'סיסמה חדשה (ריק = ללא שינוי)' : 'סיסמה'}
+                type={isAdmin && showPassword ? 'text' : 'password'}
+                value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                onFocus={() => { if (editId && form.password === '••••••') setForm(p => ({ ...p, password: '' })); }}
+                className={`w-full px-3 py-2 border rounded-lg text-sm ${isAdmin ? 'pl-9' : ''}`} />
+              {isAdmin && (
+                <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+                  title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
+                  className="absolute inset-y-0 left-2 flex items-center text-gray-400 hover:text-gray-600">
+                  {showPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                    </svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
             <input placeholder="שם מלא" value={form.full_name} onChange={e => setForm(p => ({ ...p, full_name: e.target.value }))}
