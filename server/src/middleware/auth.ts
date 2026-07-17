@@ -2,7 +2,15 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import type { Role } from '../../../shared/types';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fit2dive-secret-key-change-in-production';
+// The JWT signing key must be a real secret in production. Without it, tokens
+// for any role could be forged, so refuse to start rather than fall back to a
+// public default. A dev-only fallback keeps local development frictionless.
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && !process.env.JWT_SECRET) {
+  console.error('[auth] FATAL: JWT_SECRET is not set in production. Refusing to start.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET || 'fit2dive-dev-only-secret-not-for-production';
 
 export interface AuthPayload {
   userId: number;

@@ -48,7 +48,7 @@ losing data.
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `DATA_DIR` | **Yes (prod)** | Absolute path to the persistent data directory (the mounted volume). Server refuses to start in production without it. |
-| `JWT_SECRET` | Yes (prod) | Secret for signing auth tokens. Falls back to an insecure default if unset. |
+| `JWT_SECRET` | **Yes (prod)** | Secret for signing auth tokens. The server refuses to start in production without it (dev uses a dev-only fallback). |
 | `PORT` | No | HTTP port (default 3001). |
 | `SMS_019_TOKEN` | No | 019 SMS API token (sent as `Authorization: Bearer`). Enables SMS OTP. |
 | `SMS_019_USERNAME` | No | 019 account username. |
