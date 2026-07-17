@@ -33,6 +33,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       role: 'diver',
       team_id: null,
       diver_id: diverId,
+      phone: '',
+      email: '',
       created_at: '',
     };
     localStorage.setItem('token', token);

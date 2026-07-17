@@ -186,7 +186,7 @@ function UsersTab() {
   const [items, setItems] = useState<User[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [divers, setDivers] = useState<{ id: number; first_name: string; last_name: string }[]>([]);
-  const [form, setForm] = useState({ username: '', password: '', full_name: '', role: 'diver' as string, team_id: '' as string, diver_id: '' as string });
+  const [form, setForm] = useState({ username: '', password: '', full_name: '', role: 'diver' as string, team_id: '' as string, diver_id: '' as string, phone: '', email: '' });
   const [editId, setEditId] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -201,7 +201,7 @@ function UsersTab() {
   const roleLabels: Record<string, string> = { manager: 'מנהל', secretary: 'מזכירה', madar: 'מד"ר', diver: 'צולל' };
 
   const resetForm = () => {
-    setForm({ username: '', password: '', full_name: '', role: 'diver', team_id: '', diver_id: '' });
+    setForm({ username: '', password: '', full_name: '', role: 'diver', team_id: '', diver_id: '', phone: '', email: '' });
     setEditId(null);
     setShowForm(false);
   };
@@ -245,6 +245,8 @@ function UsersTab() {
       role: u.role,
       team_id: u.team_id ? String(u.team_id) : '',
       diver_id: u.diver_id ? String(u.diver_id) : '',
+      phone: u.phone || '',
+      email: u.email || '',
     });
   };
 
@@ -286,6 +288,13 @@ function UsersTab() {
               <option value="manager">מנהל</option>
             </select>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
+            <input placeholder="טלפון (לקוד כניסה)" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+              className="px-3 py-2 border rounded-lg text-sm" />
+            <input placeholder="אימייל (לקוד כניסה)" type="email" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              className="px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <p className="text-xs text-gray-500 mb-2">קוד הכניסה (OTP) נשלח לטלפון או לאימייל של המשתמש. חובה לפחות אחד מהם למשתמשי צוות.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
             <select value={form.team_id} onChange={e => setForm(p => ({ ...p, team_id: e.target.value }))}
               className="px-3 py-2 border rounded-lg text-sm">
