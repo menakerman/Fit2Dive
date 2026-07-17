@@ -283,7 +283,8 @@ function UsersTab() {
                 onFocus={() => { if (editId && form.password === '••••••') setForm(p => ({ ...p, password: '' })); }}
                 className={`w-full px-3 py-2 border rounded-lg text-sm ${isAdmin ? 'pl-9' : ''}`} />
               {isAdmin && (
-                <button type="button" onClick={() => setShowPassword(v => !v)} tabIndex={-1}
+                <button type="button" tabIndex={-1}
+                  onClick={() => { if (editId && form.password === '••••••') setForm(p => ({ ...p, password: '' })); setShowPassword(v => !v); }}
                   title={showPassword ? 'הסתר סיסמה' : 'הצג סיסמה'}
                   className="absolute inset-y-0 left-2 flex items-center text-gray-400 hover:text-gray-600">
                   {showPassword ? (
