@@ -63,7 +63,10 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     VALUES (?, ?, datetime('now', '+${parseInt(otpExpiry)} minutes'))
   `).run(diver.id, code);
 
-  console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.personal_number}): ${code}`);
+  // Never log the code in production (it lands in the platform logs); dev only.
+  if (process.env.NODE_ENV !== 'production') {
+    console.log(`[OTP] ${diver.first_name} ${diver.last_name} (${diver.personal_number}): ${code}`);
+  }
 
   const orgName = getConfig('org_name', 'Fit2Dive');
   const diverPhone = diver.phone || normalizePhone(phone);
