@@ -232,21 +232,25 @@ export function initDb() {
       ON divers(email) WHERE email != '';
   `);
 
-  // Seed default manager if no users exist
+  // Seed / maintain the default admin. The admin password is NEVER reset to a
+  // known value on startup (that would be a permanent backdoor) — the only
+  // automatic change is a one-time rotation off the built-in default.
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
+  const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD;
   if (userCount.count === 0) {
-    const hash = bcrypt.hashSync('admin123', 10);
+    const hash = bcrypt.hashSync(seedAdminPassword || 'admin123', 10);
     db.prepare(
       `INSERT INTO users (username, password_hash, full_name, role) VALUES (?, ?, ?, ?)`
     ).run('admin', hash, 'מנהל מערכת', 'manager');
-    console.log('Default manager created: admin / admin123');
-  } else {
-    // Re-hash admin password to ensure compatibility after bcrypt library change
+    console.log(seedAdminPassword ? 'Default manager created: admin' : 'Default manager created: admin / admin123');
+  } else if (seedAdminPassword) {
+    // One-time rotation off the well-known default. Fires only while the admin
+    // still has the default password, so a password later changed by an admin
+    // (via the UI) is never overwritten.
     const admin = db.prepare('SELECT id, password_hash FROM users WHERE username = ?').get('admin') as any;
-    if (admin && !bcrypt.compareSync('admin123', admin.password_hash)) {
-      const hash = bcrypt.hashSync('admin123', 10);
-      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, admin.id);
-      console.log('Admin password re-hashed for compatibility');
+    if (admin && bcrypt.compareSync('admin123', admin.password_hash)) {
+      db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(seedAdminPassword, 10), admin.id);
+      console.log('Admin password rotated from the default via SEED_ADMIN_PASSWORD');
     }
   }
 
