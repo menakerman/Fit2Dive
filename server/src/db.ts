@@ -78,7 +78,19 @@ export function initDb() {
       role TEXT NOT NULL CHECK(role IN ('manager','secretary','madar','diver')),
       team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
       diver_id INTEGER,
+      phone TEXT DEFAULT '',
+      email TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- One-time login codes for staff two-factor auth (stored hashed).
+    CREATE TABLE IF NOT EXISTS user_otp_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      code_hash TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      used INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS divers (
@@ -194,6 +206,15 @@ export function initDb() {
     );
   `);
 
+  // Add staff contact columns to an existing users table (no-op if present).
+  const userCols = db.prepare('PRAGMA table_info(users)').all() as { name: string }[];
+  if (userCols.length && !userCols.some(c => c.name === 'phone')) {
+    db.exec("ALTER TABLE users ADD COLUMN phone TEXT DEFAULT ''");
+  }
+  if (userCols.length && !userCols.some(c => c.name === 'email')) {
+    db.exec("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''");
+  }
+
   // Bring an existing divers table (old medical-status schema) up to the new
   // fitness/personal-number schema. No-op on a freshly created database.
   migrateDiversSchema();
@@ -226,6 +247,20 @@ export function initDb() {
       const hash = bcrypt.hashSync('admin123', 10);
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, admin.id);
       console.log('Admin password re-hashed for compatibility');
+    }
+  }
+
+  // Bootstrap the admin's contact from the environment so the seeded admin can
+  // receive a login OTP (staff 2FA). Fills only empty values, idempotent.
+  if (process.env.SEED_ADMIN_PHONE || process.env.SEED_ADMIN_EMAIL) {
+    const adminUser = db.prepare("SELECT id, phone, email FROM users WHERE username = 'admin'").get() as { id: number; phone: string; email: string } | undefined;
+    if (adminUser) {
+      if (process.env.SEED_ADMIN_PHONE && !adminUser.phone) {
+        db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(normalizePhone(process.env.SEED_ADMIN_PHONE), adminUser.id);
+      }
+      if (process.env.SEED_ADMIN_EMAIL && !adminUser.email) {
+        db.prepare('UPDATE users SET email = ? WHERE id = ?').run(process.env.SEED_ADMIN_EMAIL, adminUser.id);
+      }
     }
   }
 

@@ -4,6 +4,7 @@ import multer from 'multer';
 import * as XLSX from 'xlsx';
 import db from '../db';
 import { authenticate, requireRole } from '../middleware/auth';
+import { normalizePhone } from '../phone';
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -13,12 +14,12 @@ router.use(requireRole('manager'));
 
 router.get('/', (_req: Request, res: Response) => {
   res.json(
-    db.prepare('SELECT id, username, full_name, role, team_id, diver_id, created_at FROM users ORDER BY full_name').all()
+    db.prepare('SELECT id, username, full_name, role, team_id, diver_id, phone, email, created_at FROM users ORDER BY full_name').all()
   );
 });
 
 router.post('/', (req: Request, res: Response) => {
-  const { username, password, full_name, role, team_id, diver_id } = req.body;
+  const { username, password, full_name, role, team_id, diver_id, phone, email } = req.body;
   if (!username || !password || !full_name || !role) {
     res.status(400).json({ error: 'כל השדות נדרשים' });
     return;
@@ -27,8 +28,8 @@ router.post('/', (req: Request, res: Response) => {
   try {
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(
-      'INSERT INTO users (username, password_hash, full_name, role, team_id, diver_id) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(username, hash, full_name, role, team_id || null, diver_id || null);
+      'INSERT INTO users (username, password_hash, full_name, role, team_id, diver_id, phone, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+    ).run(username, hash, full_name, role, team_id || null, diver_id || null, normalizePhone(phone), email || '');
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e: any) {
     if (e.message?.includes('UNIQUE')) {
@@ -41,17 +42,18 @@ router.post('/', (req: Request, res: Response) => {
 
 router.put('/:id', (req: Request, res: Response) => {
   const id = parseInt(req.params.id as string);
-  const { username, password, full_name, role, team_id, diver_id } = req.body;
+  const { username, password, full_name, role, team_id, diver_id, phone, email } = req.body;
+  const normPhone = normalizePhone(phone);
 
   if (password) {
     const hash = bcrypt.hashSync(password, 10);
     db.prepare(
-      'UPDATE users SET username = ?, password_hash = ?, full_name = ?, role = ?, team_id = ?, diver_id = ? WHERE id = ?'
-    ).run(username, hash, full_name, role, team_id || null, diver_id || null, id);
+      'UPDATE users SET username = ?, password_hash = ?, full_name = ?, role = ?, team_id = ?, diver_id = ?, phone = ?, email = ? WHERE id = ?'
+    ).run(username, hash, full_name, role, team_id || null, diver_id || null, normPhone, email || '', id);
   } else {
     db.prepare(
-      'UPDATE users SET username = ?, full_name = ?, role = ?, team_id = ?, diver_id = ? WHERE id = ?'
-    ).run(username, full_name, role, team_id || null, diver_id || null, id);
+      'UPDATE users SET username = ?, full_name = ?, role = ?, team_id = ?, diver_id = ?, phone = ?, email = ? WHERE id = ?'
+    ).run(username, full_name, role, team_id || null, diver_id || null, normPhone, email || '', id);
   }
 
   res.json({ success: true });

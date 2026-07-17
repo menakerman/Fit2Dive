@@ -13,6 +13,7 @@ export default function Login() {
   const [code, setCode] = useState('');
   const [pendingUserId, setPendingUserId] = useState<number>(0);
   const [pendingName, setPendingName] = useState('');
+  const [sentTo, setSentTo] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const codeInputRef = useRef<HTMLInputElement>(null);
@@ -25,9 +26,10 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
-      const data = await api.post<{ pending_user_id: number; full_name: string }>('/auth/login', { username, password });
+      const data = await api.post<{ pending_user_id: number; full_name: string; sent_to?: string }>('/auth/login', { username, password });
       setPendingUserId(data.pending_user_id);
       setPendingName(data.full_name);
+      setSentTo(data.sent_to || '');
       setStep('otp');
       setTimeout(() => codeInputRef.current?.focus(), 100);
     } catch (err: any) {
@@ -113,7 +115,7 @@ export default function Login() {
         {step === 'otp' && (
           <form onSubmit={handleOtp} className="space-y-4">
             <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm text-center">
-              שלום {pendingName}, הזן קוד אימות
+              שלום {pendingName},{sentTo ? ` קוד אימות נשלח אל ${sentTo}` : ' הזן קוד אימות'}
             </div>
 
             <div>

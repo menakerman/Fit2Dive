@@ -18,6 +18,8 @@ export interface User {
   role: Role;
   team_id: number | null;
   diver_id: number | null;
+  phone: string;
+  email: string;
   created_at: string;
 }
 
