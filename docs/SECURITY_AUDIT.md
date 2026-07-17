@@ -130,13 +130,13 @@ non-production flag. On delivery failure, show "code could not be sent".
 
 ## Remediation plan
 
-### P0 — Do now (auth bypass; hours)
-1. **Remove the admin self-reset** (`db.ts`) and **rotate the admin password**; seed
-   from `SEED_ADMIN_PASSWORD`, only when no users exist.
-2. **Replace the static staff OTP** with a real per-login OTP (SMS/email, hashed,
-   single-use, TTL, lockout). Remove `150475` and its console log.
-3. **Hard-fail without `JWT_SECRET`** in production; drop the default.
-4. **Disable the OTP on-screen/response fallback** in production.
+### P0 — Do now (auth bypass; hours) — ✅ COMPLETE (2026-07-17)
+1. ✅ **Removed the admin self-reset** (`db.ts`) and **rotated the admin password**
+   off the default via a one-time `SEED_ADMIN_PASSWORD` rotation.
+2. ✅ **Replaced the static staff OTP** with a real per-login OTP (SMS/email,
+   sha256-hashed, single-use, TTL, lockout). Removed `150475` and its console log.
+3. ✅ **Hard-fail without `JWT_SECRET`** in production; default dropped.
+4. ✅ **Disabled the OTP on-screen/response fallback** in production (dev-only).
 
 ### P1 — This week (exposure & abuse; 1–2 days)
 5. Add **rate limiting** + `trust proxy`; per-phone cap on `request-otp`.

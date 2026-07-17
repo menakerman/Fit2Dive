@@ -50,6 +50,9 @@ losing data.
 | `DATA_DIR` | **Yes (prod)** | Absolute path to the persistent data directory (the mounted volume). Server refuses to start in production without it. |
 | `JWT_SECRET` | **Yes (prod)** | Secret for signing auth tokens. The server refuses to start in production without it (dev uses a dev-only fallback). |
 | `PORT` | No | HTTP port (default 3001). |
+| `CORS_ORIGIN` | No | Comma-separated allowed origins for cross-origin API access. Omit when the client is served from the same origin (default: cross-origin disallowed in prod). |
+| `SEED_ADMIN_PASSWORD` | No | If set, seeds a fresh admin with this password and does a one-time rotation of an existing admin off the built-in default. |
+| `SEED_ADMIN_PHONE` / `SEED_ADMIN_EMAIL` | No | Bootstrap the admin's OTP-delivery contact (used for staff 2FA). |
 | `SMS_019_TOKEN` | No | 019 SMS API token (sent as `Authorization: Bearer`). Enables SMS OTP. |
 | `SMS_019_USERNAME` | No | 019 account username. |
 | `SMS_019_SOURCE` | No | Approved 019 sender ID (≤11 chars). |
