@@ -90,9 +90,14 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     }
   }
 
-  // When the code was delivered (SMS or email), don't expose it in the
-  // response. Otherwise fall back to returning it (unconfigured delivery).
+  // The code is delivered by SMS/email and never returned in production. The
+  // on-screen fallback exists only for local development without SMS/email.
   const delivered = smsSent || emailSent;
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (!delivered && isProduction) {
+    res.status(502).json({ error: 'לא ניתן לשלוח קוד אימות כרגע. נסה שוב מאוחר יותר.' });
+    return;
+  }
   res.json({
     success: true,
     diver_id: diver.id,
@@ -100,7 +105,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     phone_hint: smsSent ? maskPhone(diverPhone) : undefined,
     email_sent: emailSent,
     email_hint: emailSent ? maskEmail(diver.email) : undefined,
-    otp_code: delivered ? undefined : code,
+    otp_code: (!delivered && !isProduction) ? code : undefined,
   });
 });
 
