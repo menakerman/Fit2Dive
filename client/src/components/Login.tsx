@@ -115,7 +115,7 @@ export default function Login() {
         {step === 'otp' && (
           <form onSubmit={handleOtp} className="space-y-4">
             <div className="bg-blue-50 text-blue-700 p-3 rounded-lg text-sm text-center">
-              שלום {pendingName},{sentTo ? ` קוד אימות נשלח אל ${sentTo}` : ' הזן קוד אימות'}
+              שלום {pendingName},{sentTo ? <> קוד אימות נשלח אל <span dir="ltr" className="inline-block">{sentTo}</span></> : ' הזן קוד אימות'}
             </div>
 
             <div>
