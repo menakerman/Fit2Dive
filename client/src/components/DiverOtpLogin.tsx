@@ -4,10 +4,14 @@ import { useAuthStore } from '../stores/authStore';
 
 type Step = 'phone' | 'otp';
 
+// Wrap LTR content (phone/email) in isolate marks (U+2066…U+2069) so it renders
+// correctly inside the surrounding RTL text.
+const ltr = (s: string) => `⁦${s}⁩`;
+
 // Human-readable message about how the code was delivered.
 function deliveryMessage(data: any): string {
-  if (data.sms_sent) return `קוד אימות נשלח בהודעת SMS למספר ${data.phone_hint || 'שלך'}.`;
-  if (data.email_sent) return `קוד אימות נשלח לכתובת ${data.email_hint || 'שלך'}.`;
+  if (data.sms_sent) return `קוד אימות נשלח בהודעת SMS למספר ${data.phone_hint ? ltr(data.phone_hint) : 'שלך'}.`;
+  if (data.email_sent) return `קוד אימות נשלח לכתובת ${data.email_hint ? ltr(data.email_hint) : 'שלך'}.`;
   return 'קוד אימות נשלח.';
 }
 
