@@ -288,6 +288,15 @@ export function initDb() {
      WHERE key = 'org_name' AND value IN ('מרי', 'Mery', 'mery')`
   ).run();
 
+  // Optional recovery: clear login lockouts on startup when RESET_LOGIN_LOCKOUTS
+  // is set. Intended to be enabled for a single deploy to unlock an account that
+  // was locked by failed-login attempts, then removed.
+  if (process.env.RESET_LOGIN_LOCKOUTS === '1') {
+    db.prepare('UPDATE user_login_attempts SET failed_attempts = 0, locked_until = NULL').run();
+    db.prepare('UPDATE diver_otp_attempts SET failed_attempts = 0, locked_until = NULL').run();
+    console.log('Login lockouts cleared (RESET_LOGIN_LOCKOUTS)');
+  }
+
   // Normalize personal numbers to the canonical 7-digit form (strip a leading
   // zero left over from the 8-digit legacy/import form). Collision-safe: skips
   // any value that would clash with an existing diver. Idempotent — once

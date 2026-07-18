@@ -46,7 +46,7 @@ function checkLockout(username: string): string | null {
 
   if (attempts?.locked_until && new Date(attempts.locked_until + 'Z') > new Date()) {
     const unlockTime = new Date(attempts.locked_until + 'Z');
-    return `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL')}`;
+    return `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`;
   }
   return null;
 }
