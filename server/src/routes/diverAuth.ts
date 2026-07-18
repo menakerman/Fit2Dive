@@ -44,7 +44,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
   if (attempts?.locked_until && new Date(attempts.locked_until + 'Z') > new Date()) {
     const unlockTime = new Date(attempts.locked_until + 'Z');
     res.status(403).json({
-      error: `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL')}`,
+      error: `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`,
     });
     return;
   }
@@ -143,7 +143,7 @@ router.post('/verify-otp', (req: Request, res: Response) => {
   if (attempts?.locked_until && new Date(attempts.locked_until + 'Z') > new Date()) {
     const unlockTime = new Date(attempts.locked_until + 'Z');
     res.status(403).json({
-      error: `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL')}`,
+      error: `החשבון נעול. נסה שוב אחרי ${unlockTime.toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' })}`,
     });
     return;
   }
