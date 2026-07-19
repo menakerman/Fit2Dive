@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import QRCode from 'qrcode';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
 import type { CertificationLevel, Team, User } from '../../../shared/types';
@@ -527,26 +528,53 @@ function UserImport({ onDone }: { onDone: () => void }) {
   );
 }
 
-function CopyLinkButton({ url, label }: { url: string; label: string }) {
+function CopyLinkButton({ url, label, qrFilename }: { url: string; label: string; qrFilename?: string }) {
   const [copied, setCopied] = useState(false);
+  const [qr, setQr] = useState('');
+
+  useEffect(() => {
+    QRCode.toDataURL(url, { width: 240, margin: 1, errorCorrectionLevel: 'M' })
+      .then(setQr)
+      .catch(() => setQr(''));
+  }, [url]);
+
   const copy = () => {
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
   return (
-    <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-3">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-700 mb-1">{label}</div>
-        <div className="text-xs text-gray-500 truncate" dir="ltr">{url}</div>
+    <div className="bg-gray-50 rounded-lg p-3">
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium text-gray-700 mb-1">{label}</div>
+          <div className="text-xs text-gray-500 truncate" dir="ltr">{url}</div>
+        </div>
+        <button onClick={copy}
+          className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+            copied ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
+          }`}>
+          {copied ? 'הועתק!' : 'העתק'}
+        </button>
       </div>
-      <button onClick={copy}
-        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-          copied ? 'bg-green-100 text-green-700' : 'bg-blue-600 text-white hover:bg-blue-700'
-        }`}>
-        {copied ? 'הועתק!' : 'העתק'}
-      </button>
+      {qr && (
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-gray-200">
+          <img src={qr} alt={`QR ${label}`} width={88} height={88}
+            className="shrink-0 rounded bg-white border border-gray-200 p-1" />
+          <div className="text-xs text-gray-500">
+            <div className="mb-1.5">סרקו את הקוד כדי לפתוח את הקישור</div>
+            <a href={qr} download={qrFilename || 'fit2dive-qr.png'}
+              className="inline-flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-blue-700 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              הורד QR
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -612,8 +640,8 @@ function SettingsTab() {
       <div>
         <h3 className="text-base sm:text-lg font-semibold mb-3">קישורים לשיתוף</h3>
         <div className="space-y-2">
-          <CopyLinkButton url={`${baseUrl}/diver-login`} label="קישור לצוללים (צפייה בסטטוס)" />
-          <CopyLinkButton url={`${baseUrl}/login`} label="קישור למנהלים / מזכירות / מד״רים" />
+          <CopyLinkButton url={`${baseUrl}/diver-login`} label="קישור לצוללים (צפייה בסטטוס)" qrFilename="fit2dive-diver-qr.png" />
+          <CopyLinkButton url={`${baseUrl}/login`} label="קישור למנהלים / מזכירות / מד״רים" qrFilename="fit2dive-staff-qr.png" />
         </div>
       </div>
 
