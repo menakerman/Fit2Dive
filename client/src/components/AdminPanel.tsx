@@ -528,14 +528,55 @@ function UserImport({ onDone }: { onDone: () => void }) {
   );
 }
 
+// Draws the Fit2Dive mark (blue circle + white "2" over a wave, matching the
+// favicon) in the center of a QR canvas.
+function drawCenterLogo(ctx: CanvasRenderingContext2D, size: number) {
+  const c = size / 2;
+  const r = Math.round(size * 0.14);
+  ctx.save();
+  // white backing + brand-blue disc
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath(); ctx.arc(c, c, r + 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#2563eb';
+  ctx.beginPath(); ctx.arc(c, c, r, 0, Math.PI * 2); ctx.fill();
+  // the "2"
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.round(r * 1.25)}px Arial, "Helvetica Neue", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('2', c, c - r * 0.14);
+  // wave beneath it
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = Math.max(2, r * 0.13);
+  ctx.lineCap = 'round';
+  const wy = c + r * 0.46;
+  ctx.beginPath();
+  ctx.moveTo(c - r * 0.55, wy);
+  ctx.quadraticCurveTo(c - r * 0.27, wy - r * 0.22, c, wy);
+  ctx.quadraticCurveTo(c + r * 0.27, wy + r * 0.22, c + r * 0.55, wy);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function CopyLinkButton({ url, label, qrFilename }: { url: string; label: string; qrFilename?: string }) {
   const [copied, setCopied] = useState(false);
   const [qr, setQr] = useState('');
 
   useEffect(() => {
-    QRCode.toDataURL(url, { width: 240, margin: 1, errorCorrectionLevel: 'M' })
-      .then(setQr)
-      .catch(() => setQr(''));
+    let cancelled = false;
+    (async () => {
+      try {
+        // High error correction so the center logo doesn't break scannability.
+        const canvas = document.createElement('canvas');
+        await QRCode.toCanvas(canvas, url, { width: 240, margin: 2, errorCorrectionLevel: 'H' });
+        const ctx = canvas.getContext('2d');
+        if (ctx) drawCenterLogo(ctx, canvas.width);
+        if (!cancelled) setQr(canvas.toDataURL('image/png'));
+      } catch {
+        if (!cancelled) setQr('');
+      }
+    })();
+    return () => { cancelled = true; };
   }, [url]);
 
   const copy = () => {
