@@ -128,9 +128,21 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
     const deleteExams = db.prepare('DELETE FROM diver_required_exams WHERE diver_id = ?');
     const insertExam = db.prepare('INSERT INTO diver_required_exams (diver_id, exam, sort_order) VALUES (?, ?, ?)');
 
+    // Backfill provenance for divers that predate change tracking. Every diver
+    // in this system originally entered via a כשירות import, so 'file_create'
+    // is their true historical source; the original author is unknown, so
+    // last_updated_by is left blank. Rows already carrying provenance (including
+    // any created/updated by this same import) are untouched, and their
+    // updated_at timestamp is left as-is.
+    const backfillProvenance = db.prepare(`
+      UPDATE divers SET last_update_source = 'file_create'
+      WHERE last_update_source IS NULL OR last_update_source = ''
+    `);
+
     let imported = 0;
     let created = 0;
     let updated = 0;
+    let backfilled = 0;
     const errors: string[] = [];
 
     const importAll = db.transaction(() => {
@@ -199,6 +211,9 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
           errors.push(`שורה ${i + 2}: ${e.message}`);
         }
       }
+
+      // Stamp any remaining pre-tracking divers, within the same transaction.
+      backfilled = backfillProvenance.run().changes;
     });
 
     importAll();
@@ -210,7 +225,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
       ON CONFLICT(key) DO UPDATE SET value = datetime('now'), updated_at = datetime('now')
     `).run();
 
-    res.json({ imported, created, updated, errors, total: rows.length });
+    res.json({ imported, created, updated, backfilled, errors, total: rows.length });
   } catch {
     res.status(400).json({ error: 'שגיאה בעיבוד הקובץ' });
   }

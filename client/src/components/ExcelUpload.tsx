@@ -32,7 +32,7 @@ export default function ExcelUpload() {
   const [preview, setPreview] = useState<PreviewData | null>(null);
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [examColumns, setExamColumns] = useState<string[]>([]);
-  const [result, setResult] = useState<{ imported: number; created?: number; updated?: number; errors: string[]; total: number } | null>(null);
+  const [result, setResult] = useState<{ imported: number; created?: number; updated?: number; backfilled?: number; errors: string[]; total: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -109,7 +109,7 @@ export default function ExcelUpload() {
       fd.append('file', file);
       fd.append('mapping', JSON.stringify(mapping));
       fd.append('exam_columns', JSON.stringify(examColumns));
-      const data = await api.post<{ imported: number; created?: number; updated?: number; errors: string[]; total: number }>('/upload/import', fd);
+      const data = await api.post<{ imported: number; created?: number; updated?: number; backfilled?: number; errors: string[]; total: number }>('/upload/import', fd);
       setResult(data);
     } catch (err: any) {
       setError(err.message);
@@ -132,6 +132,11 @@ export default function ExcelUpload() {
               <span className="font-normal"> ({result.created ?? 0} חדשים, {result.updated ?? 0} עודכנו)</span>
             )}
           </div>
+          {result.backfilled !== undefined && result.backfilled > 0 && (
+            <div className="mt-1 text-xs sm:text-sm text-green-700">
+              הושלמו פרטי מקור עבור {result.backfilled} צוללים קיימים
+            </div>
+          )}
           {result.errors.length > 0 && (
             <div className="mt-2 text-xs sm:text-sm text-red-600">
               <div className="font-medium">שגיאות:</div>
