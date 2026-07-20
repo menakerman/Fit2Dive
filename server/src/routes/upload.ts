@@ -102,14 +102,18 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }) as Record<string, any>[];
 
+    // Name of the staff member running this import, for change provenance.
+    const importer = db.prepare('SELECT full_name FROM users WHERE id = ?').get(req.auth!.userId) as { full_name: string } | undefined;
+    const importerName = importer?.full_name || '';
+
     const findByPersonal = db.prepare('SELECT id FROM divers WHERE personal_number = ?');
     const insertDiver = db.prepare(`
       INSERT INTO divers (
         first_name, last_name, personal_number, id_number, phone, email,
         fitness_status, fitness_status_date, fitness_expiry_date, unfit_days,
-        last_exam_date, medical_last_updated, notes
+        last_exam_date, medical_last_updated, notes, last_update_source, last_updated_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, 'file_create', ?)
     `);
     // Updating an existing diver only touches fitness/status data. Identity and
     // contact fields (name, personal_number, id_number, phone, email) are left
@@ -118,7 +122,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
       UPDATE divers SET
         fitness_status = ?, fitness_status_date = ?, fitness_expiry_date = ?,
         unfit_days = ?, last_exam_date = ?, medical_last_updated = datetime('now'),
-        updated_at = datetime('now')
+        last_update_source = 'file_update', last_updated_by = ?, updated_at = datetime('now')
       WHERE id = ?
     `);
     const deleteExams = db.prepare('DELETE FROM diver_required_exams WHERE diver_id = ?');
@@ -171,7 +175,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
           if (existing) {
             updateDiver.run(
               fitnessStatus, statusDate, expiryDate,
-              unfitDays, lastExamDate, existing.id
+              unfitDays, lastExamDate, importerName, existing.id
             );
             diverId = existing.id;
             updated++;
@@ -180,7 +184,7 @@ router.post('/import', upload.single('file'), (req: Request, res: Response) => {
               firstName, lastName, personalNumber,
               getValue('id_number'), normalizePhone(getValue('phone')), getValue('email'),
               fitnessStatus, statusDate, expiryDate, unfitDays, lastExamDate,
-              getValue('notes')
+              getValue('notes'), importerName
             );
             diverId = result.lastInsertRowid as number;
             created++;

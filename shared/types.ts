@@ -38,6 +38,8 @@ export interface Diver {
   last_exam_date: string | null;
   medical_last_updated: string | null;
   notes: string;
+  last_update_source: string;
+  last_updated_by: string;
   created_at: string;
   updated_at: string;
 }

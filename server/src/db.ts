@@ -115,6 +115,10 @@ export function initDb() {
       medical_last_updated TEXT,
       team_id INTEGER REFERENCES teams(id) ON DELETE SET NULL,
       notes TEXT DEFAULT '',
+      -- Provenance of the last change: 'ui_create' | 'ui_update' |
+      -- 'file_create' | 'file_update', and the name of the staff member who made it.
+      last_update_source TEXT DEFAULT '',
+      last_updated_by TEXT DEFAULT '',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -231,6 +235,15 @@ export function initDb() {
     CREATE UNIQUE INDEX IF NOT EXISTS idx_divers_email_unique
       ON divers(email) WHERE email != '';
   `);
+
+  // Add change-provenance columns to an existing divers table (no-op if present).
+  const diverCols = db.prepare('PRAGMA table_info(divers)').all() as { name: string }[];
+  if (!diverCols.some(c => c.name === 'last_update_source')) {
+    db.exec("ALTER TABLE divers ADD COLUMN last_update_source TEXT DEFAULT ''");
+  }
+  if (!diverCols.some(c => c.name === 'last_updated_by')) {
+    db.exec("ALTER TABLE divers ADD COLUMN last_updated_by TEXT DEFAULT ''");
+  }
 
   // Seed / maintain the default admin. The admin password is NEVER reset to a
   // known value on startup (that would be a permanent backdoor) — the only
