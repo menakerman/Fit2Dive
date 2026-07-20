@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { initDb } from './db';
+import { getClientIp } from './clientIp';
 import authRoutes from './routes/auth';
 import diverRoutes from './routes/divers';
 import certRoutes from './routes/certifications';
@@ -49,12 +50,14 @@ app.use(cors(isProduction
 app.use(express.json({ limit: '1mb' }));
 
 // Rate-limit authentication / OTP endpoints (brute force, SMS-cost abuse,
-// enumeration). Generous enough for legitimate use; keyed on the real client IP.
+// enumeration). Generous enough for legitimate use; keyed on the real client IP
+// (via CF-Connecting-IP behind Cloudflare) rather than the shared proxy address.
 const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
   message: { error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' },
 });
 
