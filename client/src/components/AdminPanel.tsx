@@ -674,7 +674,11 @@ function SettingsTab() {
     { key: 'medical_expiry_warning_days', label: 'אזהרת תוקף רפואי (ימים)', hint: 'כמה ימים לפני פקיעה להציג אזהרה', type: 'number' },
   ];
 
-  const baseUrl = window.location.origin;
+  // Invitation links and QR codes must always point at the canonical public
+  // domain (fit2dive.bimboapp.com, behind Cloudflare) — not whatever host an
+  // admin happens to be viewing (the raw *.railway.app origin or localhost).
+  // Overridable at build time via VITE_PUBLIC_BASE_URL.
+  const baseUrl = (import.meta.env.VITE_PUBLIC_BASE_URL || 'https://fit2dive.bimboapp.com').replace(/\/+$/, '');
 
   return (
     <div className="space-y-6">
