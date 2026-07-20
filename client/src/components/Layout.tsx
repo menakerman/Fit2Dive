@@ -43,30 +43,25 @@ export default function Layout() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-baseline gap-2 sm:gap-3 min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-blue-800 shrink-0">Fit2Dive</h1>
-              {isStaff && lastImport !== undefined && (
-                <span className="text-[11px] sm:text-xs text-gray-500 truncate">
-                  קובץ כשירות אחרון: {lastImport ? formatDateTime(lastImport) : 'לא נטען'}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <span className="text-xs sm:text-sm text-gray-500 hidden sm:inline">
-                {user?.full_name} ({roleLabels[user?.role || '']})
-              </span>
-              <span className="text-xs text-gray-500 sm:hidden">
-                {user?.full_name}
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-lg sm:text-xl font-bold text-blue-800 shrink-0">Fit2Dive</h1>
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <span className="text-xs sm:text-sm text-gray-500 truncate">
+                {user?.full_name}<span className="hidden sm:inline"> ({roleLabels[user?.role || '']})</span>
               </span>
               <button
                 onClick={handleLogout}
-                className="text-xs sm:text-sm text-red-600 hover:text-red-800 font-medium"
+                className="shrink-0 text-xs sm:text-sm text-red-600 hover:text-red-800 font-medium"
               >
                 יציאה
               </button>
             </div>
           </div>
+          {isStaff && lastImport !== undefined && (
+            <div className="text-[11px] sm:text-xs text-gray-500 mt-1 truncate">
+              קובץ כשירות אחרון: {lastImport ? formatDateTime(lastImport) : 'לא נטען'}
+            </div>
+          )}
           <nav className="flex gap-1 mt-2 overflow-x-auto pb-1 -mb-1">
             {hasRole('manager', 'secretary', 'madar') && (
               <NavLink to="/" className={linkClass} end>צוללים</NavLink>
