@@ -70,17 +70,17 @@ router.get('/', (req: Request, res: Response) => {
     rows = [db.prepare(baseQuery + ' WHERE d.id = ?').get(diverId)].filter(Boolean);
   } else if (role === 'madar') {
     rows = db.prepare(
-      baseQuery + ' WHERE d.id IN (SELECT diver_id FROM diver_teams WHERE team_id = ?) ORDER BY d.last_name, d.first_name'
+      baseQuery + ' WHERE d.id IN (SELECT diver_id FROM diver_teams WHERE team_id = ?) ORDER BY d.first_name, d.last_name'
     ).all(teamId) as any[];
   } else {
     const search = req.query.search as string;
     if (search) {
       const s = `%${search}%`;
       rows = db.prepare(
-        baseQuery + ' WHERE d.first_name LIKE ? OR d.last_name LIKE ? OR d.personal_number LIKE ? OR d.id_number LIKE ? ORDER BY d.last_name, d.first_name'
+        baseQuery + ' WHERE d.first_name LIKE ? OR d.last_name LIKE ? OR d.personal_number LIKE ? OR d.id_number LIKE ? ORDER BY d.first_name, d.last_name'
       ).all(s, s, s, s) as any[];
     } else {
-      rows = db.prepare(baseQuery + ' ORDER BY d.last_name, d.first_name').all() as any[];
+      rows = db.prepare(baseQuery + ' ORDER BY d.first_name, d.last_name').all() as any[];
     }
   }
 
