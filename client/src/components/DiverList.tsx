@@ -158,12 +158,15 @@ export default function DiverList() {
               <div
                 key={d.id}
                 onClick={() => navigate(`/divers/${d.id}`)}
-                className="bg-white rounded-xl shadow-sm p-4 active:bg-blue-50 transition cursor-pointer"
+                className={`rounded-xl shadow-sm p-4 transition cursor-pointer ${
+                  d.phone_self_provided ? 'bg-amber-50 ring-1 ring-amber-300 active:bg-amber-100' : 'bg-white active:bg-blue-50'
+                }`}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-semibold text-gray-800 inline-flex items-center gap-1.5">
                     {d.first_name} {d.last_name}
                     {d.phone && <PhoneIcon />}
+                    {!!d.phone_self_provided && <SelfPhoneBadge />}
                   </span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${fitnessBadgeClass(d.fitness_status)}`}>
                     {fitnessLabel(d.fitness_status)}
@@ -206,12 +209,15 @@ export default function DiverList() {
                     <tr
                       key={d.id}
                       onClick={() => navigate(`/divers/${d.id}`)}
-                      className="hover:bg-blue-50 cursor-pointer transition"
+                      className={`cursor-pointer transition ${
+                        d.phone_self_provided ? 'bg-amber-50 hover:bg-amber-100' : 'hover:bg-blue-50'
+                      }`}
                     >
                       <td className="px-4 py-3 font-medium">
                         <span className="inline-flex items-center gap-1.5">
                           {d.first_name} {d.last_name}
                           {d.phone && <PhoneIcon />}
+                          {!!d.phone_self_provided && <SelfPhoneBadge />}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{d.personal_number}</td>
@@ -241,6 +247,19 @@ export default function DiverList() {
         </>
       )}
     </div>
+  );
+}
+
+// Flags a diver who supplied their own phone number at first login (the record
+// had no phone on file). Highlighted so staff can verify the details.
+function SelfPhoneBadge() {
+  return (
+    <span
+      className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5 border border-amber-300"
+      title="מספר הטלפון הוזן על ידי הצולל בכניסה הראשונה — יש לוודא את הפרטים"
+    >
+      טלפון עצמי
+    </span>
   );
 }
 

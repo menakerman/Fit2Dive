@@ -119,6 +119,9 @@ export function initDb() {
       -- 'file_create' | 'file_update', and the name of the staff member who made it.
       last_update_source TEXT DEFAULT '',
       last_updated_by TEXT DEFAULT '',
+      -- Set to 1 when the diver supplied their own phone number at first login
+      -- (the record had no phone on file). Flags the record for review.
+      phone_self_provided INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -153,6 +156,9 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       diver_id INTEGER NOT NULL REFERENCES divers(id) ON DELETE CASCADE,
       code TEXT NOT NULL,
+      -- When set, the phone the diver supplied at login is committed to their
+      -- record on successful verification (used only for phone-less divers).
+      pending_phone TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       expires_at TEXT NOT NULL,
       used INTEGER DEFAULT 0
@@ -243,6 +249,15 @@ export function initDb() {
   }
   if (!diverCols.some(c => c.name === 'last_updated_by')) {
     db.exec("ALTER TABLE divers ADD COLUMN last_updated_by TEXT DEFAULT ''");
+  }
+  if (!diverCols.some(c => c.name === 'phone_self_provided')) {
+    db.exec('ALTER TABLE divers ADD COLUMN phone_self_provided INTEGER DEFAULT 0');
+  }
+
+  // Add pending_phone to diver_otp_codes for the phone-less diver login flow.
+  const otpCols = db.prepare('PRAGMA table_info(diver_otp_codes)').all() as { name: string }[];
+  if (!otpCols.some(c => c.name === 'pending_phone')) {
+    db.exec('ALTER TABLE diver_otp_codes ADD COLUMN pending_phone TEXT');
   }
 
   // Seed / maintain the default admin. The admin password is NEVER reset to a

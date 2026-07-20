@@ -40,6 +40,8 @@ export interface Diver {
   notes: string;
   last_update_source: string;
   last_updated_by: string;
+  // 1 when the diver supplied their own phone at first login (had none on file).
+  phone_self_provided: number;
   created_at: string;
   updated_at: string;
 }

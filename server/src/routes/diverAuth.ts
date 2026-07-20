@@ -21,15 +21,37 @@ router.post('/request-otp', async (req: Request, res: Response) => {
     return;
   }
 
+  const normPhone = normalizePhone(phone);
+  const normPn = normalizePersonalNumber(personal_number);
+
   // Divers identify with phone + personal number (מספר אישי): the national ID
   // is optional, while the personal number is mandatory for every diver. The
   // phone is normalized to its canonical form so any valid format the diver
   // types matches the stored number.
-  const diver = db.prepare(`
+  let diver = db.prepare(`
     SELECT id, first_name, last_name, personal_number, email, phone
     FROM divers
     WHERE phone = ? AND personal_number = ?
-  `).get(normalizePhone(phone), normalizePersonalNumber(personal_number)) as any;
+  `).get(normPhone, normPn) as any;
+
+  // First-login phone claim: a diver who exists but has NO phone on file may set
+  // one by entering it here. We match on personal number alone and ONLY proceed
+  // when the stored phone is empty — divers who already have a phone must use it,
+  // and a mismatched phone stays a plain "not found". The number is not committed
+  // yet; it is stored as pending and saved only after the OTP is verified.
+  let claimingPhone = false;
+  if (!diver && normPhone) {
+    const byPn = db.prepare(`
+      SELECT id, first_name, last_name, personal_number, email, phone
+      FROM divers WHERE personal_number = ?
+    `).get(normPn) as any;
+    // Don't hand out a phone that already belongs to another diver.
+    const phoneTaken = db.prepare('SELECT 1 FROM divers WHERE phone = ?').get(normPhone);
+    if (byPn && !byPn.phone && !phoneTaken) {
+      diver = byPn;
+      claimingPhone = true;
+    }
+  }
 
   if (!diver) {
     res.status(404).json({ error: 'פרטים לא נמצאו. יש לפנות למיכאל חמדי לברור הפרטים' });
@@ -59,9 +81,9 @@ router.post('/request-otp', async (req: Request, res: Response) => {
 
   const otpExpiry = getConfig('otp_expiry_minutes', '5');
   db.prepare(`
-    INSERT INTO diver_otp_codes (diver_id, code, expires_at)
-    VALUES (?, ?, datetime('now', '+${parseInt(otpExpiry)} minutes'))
-  `).run(diver.id, code);
+    INSERT INTO diver_otp_codes (diver_id, code, pending_phone, expires_at)
+    VALUES (?, ?, ?, datetime('now', '+${parseInt(otpExpiry)} minutes'))
+  `).run(diver.id, code, claimingPhone ? normPhone : null);
 
   // Never log the code in production (it lands in the platform logs); dev only.
   if (process.env.NODE_ENV !== 'production') {
@@ -69,7 +91,7 @@ router.post('/request-otp', async (req: Request, res: Response) => {
   }
 
   const orgName = getConfig('org_name', 'Fit2Dive');
-  const diverPhone = diver.phone || normalizePhone(phone);
+  const diverPhone = diver.phone || normPhone;
 
   // Deliver the code by SMS first (the diver logs in with their phone), then
   // fall back to email, then to returning it on screen for testing.
@@ -190,6 +212,27 @@ router.post('/verify-otp', (req: Request, res: Response) => {
 
   // Code correct
   db.prepare('UPDATE diver_otp_codes SET used = 1 WHERE id = ?').run(otp.id);
+
+  // Commit a self-provided phone now that it's verified. This only happens for a
+  // diver who had no phone on file (see request-otp), so the number becomes their
+  // permanent phone and the record is flagged for review. Guard against a rare
+  // race where the number was claimed by someone else in the meantime.
+  if (otp.pending_phone) {
+    const d = db.prepare('SELECT first_name, last_name FROM divers WHERE id = ?').get(diver_id) as any;
+    const by = d ? `${d.first_name} ${d.last_name} (הצולל)` : 'הצולל';
+    try {
+      db.prepare(`
+        UPDATE divers SET
+          phone = ?, phone_self_provided = 1,
+          last_update_source = 'diver_self', last_updated_by = ?,
+          updated_at = datetime('now')
+        WHERE id = ? AND (phone IS NULL OR phone = '')
+      `).run(otp.pending_phone, by, diver_id);
+    } catch {
+      // Phone taken by another diver since request-otp; skip the assignment and
+      // still let the diver in (they proved control of the code).
+    }
+  }
 
   // Reset attempts
   if (attempts) {

@@ -12,6 +12,7 @@ const UPDATE_SOURCE_LABELS: Record<string, string> = {
   ui_update: 'עודכן ידנית',
   file_create: 'נוצר מייבוא קובץ',
   file_update: 'עודכן מייבוא קובץ',
+  diver_self: 'מספר טלפון הוזן על ידי הצולל',
 };
 
 // SQLite datetime is UTC; render it in the viewer's local time.
@@ -53,6 +54,7 @@ export default function DiverForm() {
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<{ at: string; source: string; by: string } | null>(null);
+  const [phoneSelfProvided, setPhoneSelfProvided] = useState(false);
 
   useEffect(() => {
     api.get<CertificationLevel[]>('/certifications').then(setCertLevels);
@@ -78,6 +80,7 @@ export default function DiverForm() {
             required_exams: d.required_exams || [],
           });
           setLastUpdate({ at: d.updated_at, source: d.last_update_source, by: d.last_updated_by });
+          setPhoneSelfProvided(!!d.phone_self_provided);
         })
         .catch(e => setError(e.message))
         .finally(() => setLoading(false));
@@ -174,6 +177,15 @@ export default function DiverForm() {
         </h2>
         <button onClick={() => navigate('/')} className="text-gray-500 hover:text-gray-700 text-sm">חזרה לרשימה</button>
       </div>
+
+      {!isNew && phoneSelfProvided && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-3 py-2 text-xs sm:text-sm mb-4 flex items-start gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <span>מספר הטלפון של צולל זה הוזן על ידו בעת הכניסה הראשונה למערכת (לא היה מספר במערכת). מומלץ לוודא את נכונות הפרטים.</span>
+        </div>
+      )}
 
       {!isNew && lastUpdate && lastUpdate.at && (
         <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm mb-4">
