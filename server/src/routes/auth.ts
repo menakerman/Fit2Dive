@@ -5,6 +5,7 @@ import db from '../db';
 import { signToken, authenticate, requireRole } from '../middleware/auth';
 import { sendOtpSms, isSmsConfigured } from '../sms';
 import { sendOtpEmail, isEmailConfigured } from '../email';
+import { getClientIp } from '../clientIp';
 
 const MAX_ATTEMPTS = 3;
 const LOCKOUT_HOURS = 12;
@@ -91,7 +92,7 @@ router.post('/login', async (req: Request, res: Response) => {
     return;
   }
 
-  const ip = req.ip || '';
+  const ip = getClientIp(req);
 
   const lockMsg = checkLockout(username);
   if (lockMsg) {
@@ -164,7 +165,7 @@ router.post('/verify-otp', (req: Request, res: Response) => {
     return;
   }
 
-  const ip = req.ip || '';
+  const ip = getClientIp(req);
 
   const user = db.prepare(
     'SELECT id, username, full_name, role, team_id, diver_id, phone, email FROM users WHERE id = ?'

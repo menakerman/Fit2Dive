@@ -5,6 +5,7 @@ import { sendOtpEmail, isEmailConfigured } from '../email';
 import { sendOtpSms, isSmsConfigured } from '../sms';
 import { normalizePhone } from '../phone';
 import { normalizePersonalNumber } from '../personalNumber';
+import { getClientIp } from '../clientIp';
 
 function getConfig(key: string, fallback: string): string {
   const row = db.prepare('SELECT value FROM config WHERE key = ?').get(key) as { value: string } | undefined;
@@ -244,7 +245,7 @@ router.post('/verify-otp', (req: Request, res: Response) => {
   // Log access
   db.prepare(
     'INSERT INTO diver_access_log (diver_id, ip_address) VALUES (?, ?)'
-  ).run(diver_id, req.ip || '');
+  ).run(diver_id, getClientIp(req));
 
   // Get diver data
   const diver = db.prepare('SELECT * FROM divers WHERE id = ?').get(diver_id) as any;
