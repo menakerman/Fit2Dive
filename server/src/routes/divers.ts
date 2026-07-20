@@ -7,6 +7,12 @@ import { normalizePersonalNumber } from '../personalNumber';
 const router = Router();
 router.use(authenticate);
 
+// Display name of the acting staff member, for change provenance.
+function actorName(userId: number): string {
+  const u = db.prepare('SELECT full_name FROM users WHERE id = ?').get(userId) as { full_name: string } | undefined;
+  return u?.full_name || '';
+}
+
 function enrichDiver(diver: any) {
   const certs = db.prepare(`
     SELECT dc.*, cl.name as level_name FROM diver_certifications dc
@@ -140,13 +146,13 @@ router.post('/', requireRole('manager', 'secretary', 'madar'), (req: Request, re
       INSERT INTO divers (
         first_name, last_name, personal_number, id_number, phone, email,
         fitness_status, fitness_status_date, fitness_expiry_date, unfit_days,
-        last_exam_date, medical_last_updated, notes
+        last_exam_date, medical_last_updated, notes, last_update_source, last_updated_by
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, 'ui_create', ?)
     `).run(
       first_name, last_name, pn, id_number || '', normPhone, email || '',
       fitness_status || 'טרם נבדק', fitness_status_date || null, fitness_expiry_date || null,
-      unfit_days ?? null, last_exam_date || null, notes || ''
+      unfit_days ?? null, last_exam_date || null, notes || '', actorName(req.auth!.userId)
     );
 
     const diverId = result.lastInsertRowid as number;
@@ -201,12 +207,12 @@ router.put('/:id', requireRole('manager', 'secretary', 'madar'), (req: Request, 
         first_name = ?, last_name = ?, personal_number = ?, id_number = ?, phone = ?, email = ?,
         fitness_status = ?, fitness_status_date = ?, fitness_expiry_date = ?, unfit_days = ?,
         last_exam_date = ?, medical_last_updated = datetime('now'),
-        notes = ?, updated_at = datetime('now')
+        notes = ?, last_update_source = 'ui_update', last_updated_by = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(
       first_name, last_name, normalizePersonalNumber(personal_number), id_number || '', normPhone, email || '',
       fitness_status || 'טרם נבדק', fitness_status_date || null, fitness_expiry_date || null,
-      unfit_days ?? null, last_exam_date || null, notes || '', id
+      unfit_days ?? null, last_exam_date || null, notes || '', actorName(req.auth!.userId), id
     );
 
     if (result.changes === 0) { res.status(404).json({ error: 'צולל לא נמצא' }); return; }

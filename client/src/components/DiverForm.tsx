@@ -7,6 +7,20 @@ import type { CertificationLevel, Team, DiverWithDetails, DiverCertification } f
 
 type FieldErrors = Record<string, string>;
 
+const UPDATE_SOURCE_LABELS: Record<string, string> = {
+  ui_create: 'נוצר ידנית',
+  ui_update: 'עודכן ידנית',
+  file_create: 'נוצר מייבוא קובץ',
+  file_update: 'עודכן מייבוא קובץ',
+};
+
+// SQLite datetime is UTC; render it in the viewer's local time.
+function formatUpdatedAt(value: string): string {
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('he-IL', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 export default function DiverForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,6 +52,7 @@ export default function DiverForm() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState<{ at: string; source: string; by: string } | null>(null);
 
   useEffect(() => {
     api.get<CertificationLevel[]>('/certifications').then(setCertLevels);
@@ -62,6 +77,7 @@ export default function DiverForm() {
             team_ids: d.teams.map(t => t.id),
             required_exams: d.required_exams || [],
           });
+          setLastUpdate({ at: d.updated_at, source: d.last_update_source, by: d.last_updated_by });
         })
         .catch(e => setError(e.message))
         .finally(() => setLoading(false));
@@ -158,6 +174,14 @@ export default function DiverForm() {
         </h2>
         <button onClick={() => navigate('/')} className="text-gray-500 hover:text-gray-700 text-sm">חזרה לרשימה</button>
       </div>
+
+      {!isNew && lastUpdate && lastUpdate.at && (
+        <div className="bg-gray-50 border border-gray-200 text-gray-600 rounded-lg px-3 py-2 text-xs sm:text-sm mb-4">
+          עודכן לאחרונה: {formatUpdatedAt(lastUpdate.at)}
+          {lastUpdate.source && ` · ${UPDATE_SOURCE_LABELS[lastUpdate.source] || lastUpdate.source}`}
+          {lastUpdate.by && ` · על ידי ${lastUpdate.by}`}
+        </div>
+      )}
 
       {error && (
         <div ref={errorRef} className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-lg text-sm mb-4 flex items-start gap-2">
