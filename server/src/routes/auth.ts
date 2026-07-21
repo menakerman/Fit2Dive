@@ -146,7 +146,19 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   if (!smsSent && !emailSent) {
-    res.status(502).json({ error: 'לא ניתן לשלוח קוד אימות. ודא שמוגדר טלפון או אימייל למשתמש, או פנה למנהל המערכת.' });
+    // In production a code must be delivered by SMS/email. Outside production
+    // (local dev / testing) with no sender configured, return the code on screen
+    // so login is still possible — mirroring the diver login flow.
+    if (process.env.NODE_ENV === 'production') {
+      res.status(502).json({ error: 'לא ניתן לשלוח קוד אימות. ודא שמוגדר טלפון או אימייל למשתמש, או פנה למנהל המערכת.' });
+      return;
+    }
+    res.json({
+      pending_user_id: user.id,
+      full_name: user.full_name,
+      sent_to: user.phone ? maskPhone(user.phone) : (user.email ? maskEmail(user.email) : ''),
+      otp_code: code,
+    });
     return;
   }
 

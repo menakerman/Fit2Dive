@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:3001',
+      // Proxy target is overridable so the e2e harness can use a non-default port.
+      '/api': process.env.VITE_API_PROXY || 'http://localhost:3001',
     },
   },
 });
