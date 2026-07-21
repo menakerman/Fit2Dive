@@ -4,3 +4,11 @@ server/data/
 *.db
 .env
 .DS_Store
+
+# Test artifacts
+tests/.tmp-data/
+tests/.server-coverage/
+tests/.client-coverage/
+tests/fixtures/
+test-results/
+playwright-report/

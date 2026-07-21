@@ -54,7 +54,7 @@ app.use(express.json({ limit: '1mb' }));
 // (via CF-Connecting-IP behind Cloudflare) rather than the shared proxy address.
 const authLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 30,
+  max: Number(process.env.AUTH_RATE_MAX) || 30,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
@@ -76,8 +76,9 @@ app.use('/api/config', configRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/diver-certs', diverCertRoutes);
 
-// In production, serve the built client
-if (isProduction) {
+// In production, serve the built client. SERVE_CLIENT=1 forces this on outside
+// production too (used by the e2e coverage harness against the built client).
+if (isProduction || process.env.SERVE_CLIENT === '1') {
   // Resolve client dist path (fallback to cwd for Railway)
   const fs = require('fs');
   let clientDist = path.join(__dirname, '..', '..', '..', '..', 'client', 'dist');
@@ -93,3 +94,8 @@ if (isProduction) {
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// Exit cleanly on termination so 'exit' hooks run (e.g. V8 coverage flush).
+const shutdown = () => process.exit(0);
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
